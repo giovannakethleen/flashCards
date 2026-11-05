@@ -1,9 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { PronunciationService, type PronunciationResult } from '../core/pronunciation.service';
-import type { EnglishLocale } from '../core/speech.service';
+import {
+  SpeechService,
+  type EnglishLocale,
+  type SpeechMatch,
+} from '../core/speech.service';
 
 const MAX_RECORDING_SECONDS = 15;
 const MAX_WAV_BYTES = 512 * 1024;
@@ -23,7 +27,10 @@ const TARGET_SAMPLE_RATE = 16_000;
         <div class="practice-panel">
           <label class="locale">
             Variante do inglês
-            <select [(ngModel)]="locale" [disabled]="isRecording || isProcessing || isPreparing">
+            <select
+              [(ngModel)]="locale"
+              [disabled]="isRecording || isProcessing || isPreparing || isRecognizingSpeech"
+            >
               <option value="en-US">Inglês americano (en-US)</option>
               <option value="en-GB">Inglês britânico (en-GB)</option>
             </select>
@@ -35,13 +42,47 @@ const TARGET_SAMPLE_RATE = 16_000;
             uma exigência de imitar um falante nativo.
           </p>
 
+          <section class="speech-match" aria-label="Feedback rápido de pronúncia">
+            <h3>Feedback rápido de pronúncia</h3>
+            <p class="notice">
+              A nota compara a transcrição com a frase, não avalia fonemas. O reconhecimento pode
+              processar áudio conforme as configurações do navegador.
+            </p>
+            <button
+              type="button"
+              class="secondary"
+              (click)="toggleSpeechRecognition()"
+              [disabled]="!speech.isRecognitionSupported || isRecording || isPreparing || isProcessing"
+            >
+              {{ isRecognizingSpeech ? 'Parar prática' : 'Falar a frase' }}
+            </button>
+            @if (!speech.isRecognitionSupported) {
+              <p class="notice">O reconhecimento de fala não está disponível neste navegador.</p>
+            } @else if (isRecognizingSpeech) {
+              <p class="notice" role="status">Fale a frase em voz alta.</p>
+            }
+            @if (recognitionError) {
+              <p class="error" role="alert">{{ recognitionError }}</p>
+            }
+            @if (recognizedTranscript && speechMatch) {
+              <div class="speech-match-result" aria-live="polite">
+                <p><strong>Você disse:</strong> {{ recognizedTranscript }}</p>
+                <strong>Correspondência aproximada: {{ speechMatch.score }}%</strong>
+                <p>
+                  {{ speechMatch.matchedWords }} de {{ speechMatch.totalWords }} palavras
+                  correspondidas. {{ speechMatchFeedback }}
+                </p>
+              </div>
+            }
+          </section>
+
           <div class="actions">
             @if (!isRecording) {
               <button
                 type="button"
                 class="primary"
                 (click)="startRecording()"
-                [disabled]="isProcessing || isPreparing || isFinalizingRecording"
+                [disabled]="isProcessing || isPreparing || isFinalizingRecording || isRecognizingSpeech"
               >
                 {{ isPreparing ? 'Solicitando microfone…' : 'Gravar (máx. ' + maxSeconds + ' s)' }}
               </button>
@@ -254,6 +295,24 @@ const TARGET_SAMPLE_RATE = 16_000;
       padding-left: 1.3rem;
       line-height: 1.6;
     }
+    .speech-match {
+      display: grid;
+      gap: 0.55rem;
+      padding: 0.9rem;
+      border: 1px solid rgba(96, 165, 250, 0.2);
+      border-radius: 10px;
+      background: rgba(96, 165, 250, 0.05);
+    }
+    .speech-match h3,
+    .speech-match-result p {
+      margin: 0;
+    }
+    .speech-match-result {
+      display: grid;
+      gap: 0.35rem;
+      color: #d1fae5;
+      line-height: 1.5;
+    }
     .word-list > li {
       margin-bottom: 0.45rem;
     }
@@ -276,6 +335,10 @@ export class PronunciationPracticeComponent implements OnInit, OnDestroy {
   audioUrl: string | null = null;
   errorMessage = '';
   result: PronunciationResult | null = null;
+  isRecognizingSpeech = false;
+  recognizedTranscript = '';
+  recognitionError = '';
+  speechMatch: SpeechMatch | null = null;
 
   private recorder: MediaRecorder | null = null;
   private stream: MediaStream | null = null;
@@ -286,8 +349,13 @@ export class PronunciationPracticeComponent implements OnInit, OnDestroy {
   private discardWhenStopped = false;
   private destroyed = false;
   private recordingRequest = 0;
+  private recognitionSession: { stop: () => void } | null = null;
 
-  constructor(private readonly pronunciation: PronunciationService) {}
+  constructor(
+    private readonly pronunciation: PronunciationService,
+    public readonly speech: SpeechService,
+    private readonly changeDetector: ChangeDetectorRef,
+  ) {}
 
   ngOnInit() {
     this.isOpen = this.initiallyOpen;
@@ -303,7 +371,63 @@ export class PronunciationPracticeComponent implements OnInit, OnDestroy {
       this.discardRecording();
       this.result = null;
       this.errorMessage = '';
+      this.recognitionSession?.stop();
+      this.recognitionSession = null;
+      this.isRecognizingSpeech = false;
     }
+  }
+
+  toggleSpeechRecognition() {
+    if (this.isRecognizingSpeech) {
+      this.recognitionSession?.stop();
+      return;
+    }
+
+    this.recognizedTranscript = '';
+    this.speechMatch = null;
+    this.recognitionError = '';
+    try {
+      this.recognitionSession = this.speech.startRecognition(
+        this.locale,
+        (transcript) => {
+          this.recognizedTranscript = transcript;
+          this.speechMatch = this.speech.compareTranscript(this.referenceText, transcript);
+          this.changeDetector.markForCheck();
+        },
+        (error) => {
+          this.recognitionError = this.speech.recognitionErrorMessage(error);
+          this.changeDetector.markForCheck();
+        },
+        () => {
+          this.isRecognizingSpeech = false;
+          this.recognitionSession = null;
+          this.changeDetector.markForCheck();
+        },
+      );
+      if (!this.recognitionSession) {
+        this.recognitionError = 'O reconhecimento de fala não está disponível neste navegador.';
+        return;
+      }
+      this.isRecognizingSpeech = true;
+    } catch (error) {
+      this.recognitionSession = null;
+      const errorCode =
+        error instanceof Error && error.name === 'NotAllowedError' ? 'not-allowed' : 'unknown';
+      this.recognitionError = this.speech.recognitionErrorMessage(errorCode);
+    }
+  }
+
+  get speechMatchFeedback() {
+    if (!this.speechMatch) {
+      return '';
+    }
+    if (this.speechMatch.score >= 90) {
+      return 'Ótimo resultado — continue praticando!';
+    }
+    if (this.speechMatch.score >= 70) {
+      return 'Está chegando lá. Tente mais uma vez no seu ritmo.';
+    }
+    return 'Ouça a frase novamente e tente repetir com calma.';
   }
 
   async startRecording() {
@@ -420,6 +544,8 @@ export class PronunciationPracticeComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.destroyed = true;
+    this.recognitionSession?.stop();
+    this.recognitionSession = null;
     this.recordingRequest += 1;
     this.isPreparing = false;
     this.discardWhenStopped = true;

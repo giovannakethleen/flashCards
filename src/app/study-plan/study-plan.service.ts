@@ -29,6 +29,13 @@ export interface ScheduledReview {
   next_review_at: string;
 }
 
+export interface StudyNote {
+  id: string;
+  title: string;
+  content: string;
+  updated_at: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class StudyPlanService {
   constructor(private readonly auth: AuthService) {}
@@ -90,6 +97,105 @@ export class StudyPlanService {
     }
 
     return (data ?? []) as ScheduledReview[];
+  }
+
+  async getDayNote(date: string): Promise<string> {
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const { data, error } = await client
+      .from('study_day_notes')
+      .select('content')
+      .eq('user_id', user.id)
+      .eq('note_date', date)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message || 'Não foi possível carregar a anotação do dia.');
+    }
+
+    return data?.content ?? '';
+  }
+
+  async saveDayNote(date: string, content: string): Promise<void> {
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const { error } = await client.from('study_day_notes').upsert(
+      {
+        user_id: user.id,
+        note_date: date,
+        content,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,note_date' },
+    );
+
+    if (error) {
+      throw new Error(error.message || 'Não foi possível salvar a anotação do dia.');
+    }
+  }
+
+  async listNotes(): Promise<StudyNote[]> {
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const { data, error } = await client
+      .from('study_notes')
+      .select('id, title, content, updated_at')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message || 'Não foi possível carregar suas notas.');
+    }
+
+    return (data ?? []) as StudyNote[];
+  }
+
+  async createNote(title: string, content = ''): Promise<StudyNote> {
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const { data, error } = await client
+      .from('study_notes')
+      .insert({
+        user_id: user.id,
+        title: title.trim(),
+        content,
+      })
+      .select('id, title, content, updated_at')
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message || 'Não foi possível criar a nota.');
+    }
+
+    return data as StudyNote;
+  }
+
+  async updateNote(noteId: string, title: string, content: string): Promise<void> {
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const { error } = await client
+      .from('study_notes')
+      .update({ title: title.trim(), content, updated_at: new Date().toISOString() })
+      .eq('id', noteId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      throw new Error(error.message || 'Não foi possível salvar a nota.');
+    }
+  }
+
+  async deleteNote(noteId: string): Promise<void> {
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const { error } = await client
+      .from('study_notes')
+      .delete()
+      .eq('id', noteId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      throw new Error(error.message || 'Não foi possível excluir a nota.');
+    }
   }
 
   async saveActivity(input: StudyActivityInput, activityId?: string): Promise<void> {

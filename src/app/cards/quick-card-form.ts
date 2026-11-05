@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { CardService } from './card.service';
@@ -28,11 +28,15 @@ import { TranslationService } from '../core/translation.service';
           <span>Frase em inglês *</span>
           <textarea
             [(ngModel)]="englishText"
+            (ngModelChange)="checkForDuplicate()"
             required
             rows="4"
             placeholder="She has been studying a lot."
           ></textarea>
         </label>
+        @if (duplicateMessage) {
+          <p class="translation-hint" role="status">{{ duplicateMessage }}</p>
+        }
 
         <div class="capture-row">
           <button type="button" class="soft" (click)="readClipboardText()">
@@ -88,8 +92,21 @@ import { TranslationService } from '../core/translation.service';
               <input [(ngModel)]="focusWord" type="text" placeholder="study" />
             </label>
             <label>
-              <span>Tema</span>
-              <input [(ngModel)]="category" type="text" placeholder="Trabalho, viagem, comida..." />
+              <span>Categoria ou tipo do cartão</span>
+              <input
+                [(ngModel)]="category"
+                type="text"
+                list="category-suggestions"
+                placeholder="Travel, vocabulary, sentence, cloze..."
+              />
+              <datalist id="category-suggestions">
+                <option value="travel"></option>
+                <option value="work"></option>
+                <option value="food"></option>
+                <option value="vocabulary"></option>
+                <option value="sentence"></option>
+                <option value="cloze"></option>
+              </datalist>
             </label>
           </div>
           <div class="grid">
@@ -140,6 +157,29 @@ import { TranslationService } from '../core/translation.service';
             Salvar e adicionar outra
           </button>
         </div>
+        <p class="translation-hint">Atalho: Ctrl+Enter salva o cartão.</p>
+
+        <details class="optional-details batch-details">
+          <summary>Cadastro em lote (até 10 frases)</summary>
+          <p class="translation-hint">
+            Cole uma frase por linha. Para informar a tradução manualmente, use o formato
+            <code>frase em inglês | tradução</code>. Linhas sem tradução usam a tradução com IA.
+          </p>
+          <textarea
+            [(ngModel)]="batchText"
+            rows="7"
+            placeholder="I’m looking forward to the trip.&#10;Could you help me, please?"
+            aria-label="Frases para cadastro em lote"
+          ></textarea>
+          <button
+            type="button"
+            class="secondary batch-button"
+            (click)="saveBatch()"
+            [disabled]="isSubmitting || !batchText.trim()"
+          >
+            {{ isSubmitting ? 'Salvando lote...' : 'Traduzir e salvar frases' }}
+          </button>
+        </details>
       </section>
     </main>
   `,
@@ -353,11 +393,14 @@ import { TranslationService } from '../core/translation.service';
     }
   `,
 })
-export class QuickCardFormComponent {
+export class QuickCardFormComponent implements OnInit {
   englishText = '';
   portugueseText = '';
   focusWord = '';
   category = '';
+  batchText = '';
+  duplicateMessage = '';
+  private existingPhrases: Array<{ normalized: string; original: string }> = [];
   source = '';
   audioInfo = '';
   level = '';
@@ -375,6 +418,62 @@ export class QuickCardFormComponent {
     public readonly speech: SpeechService,
     public readonly translation: TranslationService,
   ) {}
+
+  ngOnInit() {
+    void this.loadExistingPhrases();
+  }
+
+  private async loadExistingPhrases() {
+    try {
+      const cards = await this.cardService.listCards();
+      this.existingPhrases = cards.map((card) => ({
+        normalized: this.normalizePhrase(card.english_text),
+        original: card.english_text,
+      }));
+      this.checkForDuplicate();
+    } catch (error) {
+      this.errorMessage =
+        error instanceof Error ? error.message : 'Não foi possível verificar frases duplicadas.';
+    }
+  }
+
+  checkForDuplicate() {
+    const phrase = this.normalizePhrase(this.englishText);
+    this.duplicateMessage = '';
+    if (phrase.length < 8) {
+      return;
+    }
+
+    const match = this.existingPhrases.find(
+      ({ normalized }) =>
+        normalized.length > 0 &&
+        normalized === phrase ||
+        (normalized.length > 0 &&
+          phrase.length >= 24 &&
+          (normalized.includes(phrase) || phrase.includes(normalized))),
+    );
+    if (match) {
+      this.duplicateMessage = `Você já tem uma frase parecida: “${match.original}”. Confira antes de salvar.`;
+    }
+  }
+
+  private normalizePhrase(value: string) {
+    return value.trim().toLocaleLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ');
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  handleSaveShortcut(event: KeyboardEvent) {
+    if (
+      event.target instanceof HTMLElement &&
+      event.target.closest('.batch-details')
+    ) {
+      return;
+    }
+    if (event.ctrlKey && event.key === 'Enter' && !this.isSubmitting && !this.isTranslating) {
+      event.preventDefault();
+      void this.saveCard(false);
+    }
+  }
 
   async readClipboardText() {
     if (!navigator.clipboard || !navigator.clipboard.readText) {
@@ -462,10 +561,14 @@ export class QuickCardFormComponent {
         english_text: this.englishText,
         portuguese_text: this.portugueseText,
         focus_word: this.focusWord,
-        category: this.category,
+        category: this.category || 'sentence',
         source: this.source,
         audio_info: this.audioInfo,
         level: this.level || null,
+      });
+      this.existingPhrases.push({
+        normalized: this.normalizePhrase(this.englishText),
+        original: this.englishText.trim(),
       });
 
       this.successMessage = addAnother
@@ -483,6 +586,61 @@ export class QuickCardFormComponent {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível salvar o cartão.';
       this.errorMessage = message;
+    } finally {
+      this.isSubmitting = false;
+    }
+  }
+
+  async saveBatch() {
+    this.errorMessage = '';
+    this.successMessage = '';
+    const lines = this.batchText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (!lines.length || lines.length > 10) {
+      this.errorMessage = 'Informe de 1 a 10 frases, uma por linha.';
+      return;
+    }
+
+    this.isSubmitting = true;
+    try {
+      const inputs = [];
+      for (const [index, line] of lines.entries()) {
+        const separator = line.indexOf('|');
+        const english = (separator >= 0 ? line.slice(0, separator) : line).trim();
+        let portuguese = separator >= 0 ? line.slice(separator + 1).trim() : '';
+        if (!english) {
+          throw new Error(`A frase da linha ${index + 1} está vazia.`);
+        }
+        if (!portuguese) {
+          if (!this.translation.enabled) {
+            throw new Error(
+              `A linha ${index + 1} não tem tradução e a tradução automática não está configurada.`,
+            );
+          }
+          portuguese = (await this.translation.translateToPortuguese(english)).text;
+        }
+        inputs.push({
+          english_text: english,
+          portuguese_text: portuguese,
+          category: this.category || 'sentence',
+        });
+      }
+
+      await this.cardService.createCards(inputs);
+      this.successMessage = `${inputs.length} cartões salvos com sucesso.`;
+      this.batchText = '';
+      this.existingPhrases.push(
+        ...inputs.map((input) => ({
+          normalized: this.normalizePhrase(input.english_text),
+          original: input.english_text,
+        })),
+      );
+    } catch (error) {
+      this.errorMessage =
+        error instanceof Error ? error.message : 'Não foi possível salvar as frases do lote.';
     } finally {
       this.isSubmitting = false;
     }

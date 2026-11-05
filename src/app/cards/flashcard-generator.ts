@@ -485,6 +485,21 @@ export class FlashcardGeneratorComponent implements OnInit {
 
   ngOnInit() {
     this.source = this.route.snapshot.queryParamMap.get('source')?.slice(0, 160) ?? '';
+    let summary = '';
+    try {
+      if (typeof window !== 'undefined') {
+        summary = window.sessionStorage.getItem('flashcards-ai-note-draft') ?? '';
+        window.sessionStorage.removeItem('flashcards-ai-note-draft');
+      }
+    } catch {
+      this.errorMessage = 'Não foi possível carregar o texto da nota neste navegador.';
+      return;
+    }
+    if (Array.from(summary).length > 5000) {
+      this.errorMessage = 'A nota ultrapassa o limite de 5.000 caracteres para a geração com IA.';
+      return;
+    }
+    this.summary = summary;
   }
 
   async generate() {

@@ -1,17 +1,8 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 
-import { CardService, type DailyActivity } from '../cards/card.service';
-import { StudyPlanService, type StudyActivity } from '../study-plan/study-plan.service';
-
-interface ActivityCell extends DailyActivity {
-  level: number;
-  title: string;
-  isFuture: boolean;
-  isToday: boolean;
-  dayNumber: number;
-  plannedActivities: StudyActivity[];
-}
+import { CardService, type DailyActivity, type LearningInsights } from '../cards/card.service';
+import { AuthService } from '../core/auth.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -24,20 +15,47 @@ interface ActivityCell extends DailyActivity {
         </div>
       </div>
 
-      <section class="activity-section" aria-labelledby="activity-title">
-        <div class="activity-heading">
+      <section class="home-study" aria-labelledby="home-study-title">
+        <div class="home-study-heading">
           <div>
-            <h1 id="activity-title">Seu ritmo de estudos</h1>
-            <p>Uma visão diária do que você adicionou e praticou.</p>
+            <p class="next-action-eyebrow">SEU PRÓXIMO PASSO</p>
+            <h1 id="home-study-title">Seu ritmo de estudos</h1>
           </div>
-          @if (!activityLoading && !activityError) {
-            <strong
-              >{{ activeDays }} {{ activeDays === 1 ? 'dia ativo' : 'dias ativos' }} neste
-              mês</strong
-            >
+          <button type="button" class="next-action-button" (click)="goToStudyNow()">
+            Estudar agora · {{ studyNowCount }}
+            {{ studyNowCount === 1 ? 'cartão' : 'cartões' }}
+          </button>
+        </div>
+        <div class="daily-goal">
+          <div
+            class="goal-ring"
+            [style.background]="goalRingBackground"
+            role="progressbar"
+            [attr.aria-valuenow]="goalProgress"
+            [attr.aria-valuemin]="0"
+            [attr.aria-valuemax]="dailyGoal"
+            [attr.aria-label]="'Meta diária: ' + goalProgress + ' de ' + dailyGoal + ' cartões'"
+          >
+            <span>{{ goalProgress }}/{{ dailyGoal }}</span>
+          </div>
+          <label class="goal-setting">
+            Meta diária
+            <span>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                [value]="dailyGoal"
+                (change)="updateDailyGoal($event)"
+                aria-label="Quantidade de cartões da meta diária"
+              />
+              cartões
+            </span>
+          </label>
+          @if (dailyGoalError) {
+            <p class="goal-error" role="alert">{{ dailyGoalError }}</p>
           }
         </div>
-
         @if (activityError) {
           <div class="status-box error" role="alert">
             <span>{{ activityError }}</span>
@@ -46,184 +64,47 @@ interface ActivityCell extends DailyActivity {
             </button>
           </div>
         } @else if (activityLoading) {
-          <div class="activity-card activity-loading" role="status">
-            Carregando seu calendário de estudos...
-          </div>
+          <p class="home-loading" role="status">Carregando seu resumo de estudos...</p>
         } @else {
-          <div class="activity-card">
-            <div class="month-calendar">
-              <div class="month-navigation">
-                <button
-                  type="button"
-                  class="month-arrow"
-                  (click)="changeMonth(-1)"
-                  aria-label="Mês anterior"
-                >
-                  ‹
-                </button>
-                <h2>{{ activityMonthLabel }}</h2>
-                <button
-                  type="button"
-                  class="month-arrow"
-                  (click)="changeMonth(1)"
-                  [disabled]="!canGoToNextMonth"
-                  aria-label="Próximo mês"
-                >
-                  ›
-                </button>
-              </div>
-              <div class="weekday-names" aria-hidden="true">
-                @for (weekday of weekdayNames; track weekday) {
-                  <span>{{ weekday }}</span>
-                }
-              </div>
-              <div
-                class="calendar-days"
-                role="group"
-                [attr.aria-label]="'Calendário de atividade de ' + activityMonthLabel"
-              >
-                @for (day of activityDays; track $index) {
-                  @if (day) {
-                    <button
-                      type="button"
-                      class="activity-day"
-                      [class.selected]="selectedActivityDate === day.date"
-                      [class.today]="day.isToday"
-                      [class.future]="day.isFuture"
-                      [attr.data-level]="day.level"
-                      [attr.aria-label]="day.title"
-                      [attr.aria-pressed]="selectedActivityDate === day.date"
-                      [attr.title]="day.title"
-                      [disabled]="day.isFuture && !day.plannedActivities.length"
-                      (click)="selectActivityDay(day)"
-                    >
-                      {{ day.dayNumber }}
-                      @if (day.plannedActivities.length) {
-                        <span class="planned-marker">
-                          {{ day.plannedActivities.length }}
-                        </span>
-                      }
-                    </button>
-                  } @else {
-                    <span class="calendar-empty" aria-hidden="true"></span>
-                  }
-                }
-              </div>
-              <div class="calendar-legend">
-                <span>Menos atividade</span>
-                <span class="legend-day" data-level="0"></span>
-                <span class="legend-day" data-level="1"></span>
-                <span class="legend-day" data-level="2"></span>
-                <span class="legend-day" data-level="3"></span>
-                <span class="legend-day" data-level="4"></span>
-                <span>Mais</span>
-              </div>
+          <div class="home-week">
+            <div class="home-week-heading">
+              <h2>Últimos 7 dias</h2>
+              <strong>{{ streakDays }} {{ streakDays === 1 ? 'dia seguido' : 'dias seguidos' }}</strong>
             </div>
-
-            <aside class="activity-details">
-              <div class="month-totals">
-                <article class="month-stat">
-                  <strong>{{ monthTotals.cardsAdded }}</strong>
-                  <span>cards adicionados</span>
-                </article>
-                <article class="month-stat">
-                  <strong>{{ monthTotals.cardsStudied }}</strong>
-                  <span>cards estudados*</span>
-                </article>
-                <article class="month-stat">
-                  <strong>{{ monthTotals.reviews }}</strong>
-                  <span>revisões</span>
-                </article>
-              </div>
-
-              <div class="selected-day">
-                <h2>{{ selectedActivityLabel }}</h2>
-                <div class="day-stats">
-                  <p>
-                    <strong>{{ selectedActivity.cardsAdded }}</strong
-                    ><span>cards adicionados</span>
-                  </p>
-                  <p>
-                    <strong>{{ selectedActivity.cardsStudied }}</strong
-                    ><span>cards estudados</span>
-                  </p>
-                  <p>
-                    <strong>{{ selectedActivity.reviews }}</strong
-                    ><span>revisões feitas</span>
-                  </p>
-                </div>
-              </div>
-              <p class="activity-note">
-                Selecione um dia para ver os detalhes. *No mês, cards estudados soma os cartões
-                distintos praticados a cada dia.
-              </p>
-              @if (selectedPlannedActivities.length) {
-                <div class="planned-day-list" aria-label="Atividades planejadas para este dia">
-                  <h3>Plano do dia</h3>
-                  @for (activity of selectedPlannedActivities; track activity.id) {
-                    <article
-                      class="planned-day-item"
-                      [class.completed]="activity.status === 'completed'"
-                    >
-                      <span>
-                        <strong>{{ activity.title }}</strong>
-                        <small>
-                          {{ activityTypeLabel(activity.activity_type) }} ·
-                          {{ activityStatusLabel(activity.status) }}
-                        </small>
-                      </span>
-                      @if (activity.status !== 'completed') {
-                        <button
-                          type="button"
-                          class="complete-plan-button"
-                          (click)="completePlannedActivity(activity)"
-                          [disabled]="savingPlanActivity"
-                        >
-                          Concluir
-                        </button>
-                      } @else {
-                        <span class="completed-plan-label">Concluída</span>
-                      }
-                    </article>
-                  }
-                  <button type="button" class="view-plan-button" (click)="goToStudyPlan()">
-                    Abrir Meu plano
-                  </button>
+            <p class="streak-reminder">{{ streakReminder }}</p>
+            <div class="home-week-dots" aria-label="Atividade dos últimos sete dias">
+              @for (day of weeklyActivity; track day.date) {
+                <div class="home-week-day">
+                  <span
+                    class="home-week-dot"
+                    [attr.data-level]="day.level"
+                    [attr.title]="day.label + ': ' + day.count + ' revisões'"
+                    [attr.aria-label]="day.label + ': ' + day.count + ' revisões'"
+                    role="img"
+                  ></span>
+                  <small>{{ day.weekday }}</small>
                 </div>
               }
-            </aside>
+            </div>
+          </div>
+          <div class="home-month-totals" aria-label="Resumo deste mês">
+            <h2>Este mês</h2>
+            <article>
+              <strong>{{ monthTotals.cardsAdded }}</strong>
+              <span>adicionados</span>
+            </article>
+            <article>
+              <strong>{{ monthTotals.cardsStudied }}</strong>
+              <span>estudados</span>
+            </article>
+            <article>
+              <strong>{{ monthTotals.reviews }}</strong>
+              <span>revisões</span>
+            </article>
           </div>
         }
-      </section>
-
-      <section class="next-action" aria-labelledby="next-action-title">
-        <div class="next-action-copy">
-          <p class="next-action-eyebrow">PRÓXIMO PASSO</p>
-          <h2 id="next-action-title">
-            @if (statsLoading) {
-              Carregando sua próxima atividade...
-            } @else if (stats.dueToday) {
-              Você tem {{ stats.dueToday }}
-              {{ stats.dueToday === 1 ? 'cartão para revisar' : 'cartões para revisar' }}
-            } @else {
-              Nenhum cartão pendente para revisar
-            }
-          </h2>
-          <p>
-            Revisão rápida · cerca de
-            {{ statsLoading ? '—' : estimatedReviewMinutes }} minutos
-          </p>
-          @if (!todayPlanLoading) {
-            <p class="today-plan-summary">
-              {{ todayPlanSummary }}
-            </p>
-          }
-          @if (todayPlanError) {
-            <p class="today-plan-error" role="status">{{ todayPlanError }}</p>
-          }
-        </div>
-        <button type="button" class="next-action-button" (click)="goToReview()">
-          {{ stats.dueToday ? 'Começar agora' : 'Abrir revisão' }}
+        <button type="button" class="calendar-link" (click)="goToStudyPlan()">
+          Ver calendário completo <span aria-hidden="true">→</span>
         </button>
       </section>
 
@@ -274,6 +155,83 @@ interface ActivityCell extends DailyActivity {
             <span class="stat-footnote">Cada revisão conta.</span>
           </article>
         </div>
+      </section>
+
+      <section class="learning-insights" aria-labelledby="insights-title">
+        <div class="section-title">
+          <div>
+            <h2 id="insights-title">Estatísticas de aprendizagem</h2>
+            <p>Seu aproveitamento, ritmo semanal e cartões que merecem mais atenção.</p>
+          </div>
+        </div>
+        @if (insightsError) {
+          <div class="status-box error" role="alert">
+            <span>{{ insightsError }}</span>
+            <button type="button" class="retry-button" (click)="loadLearningInsights()">
+              Tentar novamente
+            </button>
+          </div>
+        } @else if (insightsLoading) {
+          <div class="insights-card" role="status">Carregando suas estatísticas...</div>
+        } @else {
+          <div class="insights-grid">
+            <article class="accuracy-card">
+              <span>Taxa de acerto</span>
+              <strong>{{ learningInsights.accuracy === null ? '—' : learningInsights.accuracy + '%' }}</strong>
+              <small>
+                {{ learningInsights.accuracy === null
+                  ? 'Aparecerá depois da primeira revisão'
+                  : 'Em ' + learningInsights.reviewCount + ' revisões registradas' }}
+              </small>
+            </article>
+
+            <section class="insights-card weekly-progress" aria-labelledby="weekly-progress-title">
+              <h3 id="weekly-progress-title">Evolução por semana · últimas 8 semanas</h3>
+              <div class="weekly-progress-bars">
+                @for (week of learningInsights.weeklyProgress; track week.weekStart) {
+                  <div class="weekly-progress-column">
+                    <span class="weekly-progress-count">{{ week.reviews }}</span>
+                    <span
+                      class="weekly-progress-bar"
+                      [style.height.%]="weeklyBarHeight(week.reviews)"
+                      [attr.title]="week.label + ': ' + week.reviews + ' revisões'"
+                    ></span>
+                    <span class="weekly-progress-label">{{ week.label }}</span>
+                    <small>{{ week.accuracy === null ? '—' : week.accuracy + '%' }}</small>
+                  </div>
+                }
+              </div>
+              <p>Revisões por semana; a porcentagem indica a taxa de acerto daquela semana.</p>
+            </section>
+
+            <section class="insights-card difficult-list" aria-labelledby="difficult-title">
+              <div class="difficult-heading">
+                <h3 id="difficult-title">Cartões mais difíceis</h3>
+                <button
+                  type="button"
+                  class="difficult-review-button"
+                  (click)="goToDifficultReview()"
+                  [disabled]="!learningInsights.difficultCards.length"
+                >
+                  Revisar difíceis
+                </button>
+              </div>
+              @if (learningInsights.difficultCards.length) {
+                @for (card of learningInsights.difficultCards; track card.id) {
+                  <article class="difficult-card">
+                    <span>
+                      <strong>{{ card.english_text }}</strong>
+                      <small>{{ card.portuguese_text }}</small>
+                    </span>
+                    <small>{{ card.mistake_count }} {{ card.mistake_count === 1 ? 'erro' : 'erros' }}</small>
+                  </article>
+                }
+              } @else {
+                <p class="no-difficult-cards">Nenhum erro registrado ainda. Continue praticando!</p>
+              }
+            </section>
+          </div>
+        }
       </section>
 
       <section class="tools-section">
@@ -332,21 +290,26 @@ export class DashboardComponent implements OnInit {
   stats = { totalCards: 0, dueToday: 0, reviewedToday: 0 };
   activityLoading = true;
   activityError = '';
-  activityDays: Array<ActivityCell | null> = [];
-  displayedMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  activityMonthLabel = '';
-  selectedActivityDate = '';
-  selectedActivity: DailyActivity = { date: '', cardsAdded: 0, cardsStudied: 0, reviews: 0 };
-  selectedPlannedActivities: StudyActivity[] = [];
-  dailyPlanActivities: StudyActivity[] = [];
-  private plannedActivities: StudyActivity[] = [];
-  selectedActivityLabel = '';
-  activeDays = 0;
   monthTotals = { cardsAdded: 0, cardsStudied: 0, reviews: 0 };
-  todayPlanLoading = true;
-  todayPlanError = '';
-  savingPlanActivity = false;
-  readonly weekdayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  weeklyActivity: Array<{
+    date: string;
+    label: string;
+    weekday: string;
+    count: number;
+    level: number;
+  }> = [];
+  learningInsights: LearningInsights = {
+    accuracy: null,
+    reviewCount: 0,
+    difficultCards: [],
+    weeklyProgress: [],
+  };
+  insightsLoading = true;
+  insightsError = '';
+  dailyGoal = 5;
+  dailyGoalError = '';
+  streakDays = 0;
+  readonly Math = Math;
 
   readonly todayLabel = new Intl.DateTimeFormat('pt-BR', {
     weekday: 'long',
@@ -357,14 +320,15 @@ export class DashboardComponent implements OnInit {
   constructor(
     private readonly router: Router,
     private readonly cardService: CardService,
-    private readonly studyPlanService: StudyPlanService,
+    private readonly auth: AuthService,
     private readonly changeDetector: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
+    void this.loadDailyGoal();
     void this.loadStats();
     void this.loadActivity();
-    void this.loadTodayPlan();
+    void this.loadLearningInsights();
   }
 
   async loadActivity() {
@@ -374,24 +338,40 @@ export class DashboardComponent implements OnInit {
     try {
       const today = new Date();
       const todayDate = this.formatDate(today);
-      const monthStart = new Date(
-        this.displayedMonth.getFullYear(),
-        this.displayedMonth.getMonth(),
-        1,
-      );
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
       const startDate = this.formatDate(monthStart);
       const endDate = this.formatDate(
-        new Date(this.displayedMonth.getFullYear(), this.displayedMonth.getMonth() + 1, 0),
+        new Date(today.getFullYear(), today.getMonth() + 1, 0),
       );
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-      const [activity, plannedActivities] = await Promise.all([
-        this.cardService.getActivityCalendar(startDate, endDate, timeZone),
-        this.studyPlanService.listActivities(startDate, endDate),
-      ]);
-      this.plannedActivities = plannedActivities;
-      this.activityDays = this.buildActivityDays(monthStart, activity, todayDate, plannedActivities);
-      this.activeDays = activity.filter((day) => day.cardsAdded + day.reviews > 0).length;
-      this.monthTotals = activity.reduce(
+      const weekStart = new Date(today);
+      weekStart.setDate(weekStart.getDate() - 6);
+      const yearStart = new Date(today);
+      yearStart.setDate(yearStart.getDate() - 364);
+      const yearStartDate = this.formatDate(yearStart);
+      const activity = await this.cardService.getActivityCalendar(
+        yearStartDate,
+        todayDate,
+        timeZone,
+      );
+      this.streakDays = this.calculateStreak(activity, todayDate);
+      this.weeklyActivity = Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + index);
+        const isoDate = this.formatDate(date);
+        const item = activity.find((day) => day.date === isoDate);
+        const total = item ? item.cardsAdded + item.cardsStudied + item.reviews : 0;
+        return {
+          date: isoDate,
+          label: new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' }).format(date),
+          weekday: new Intl.DateTimeFormat('pt-BR', { weekday: 'short' })
+            .format(date)
+            .replace('.', ''),
+          count: item?.reviews ?? 0,
+          level: total === 0 ? 0 : total === 1 ? 1 : total <= 3 ? 2 : total <= 6 ? 3 : 4,
+        };
+      });
+      this.monthTotals = activity.filter((day) => day.date >= startDate && day.date <= endDate).reduce(
         (totals, day) => ({
           cardsAdded: totals.cardsAdded + day.cardsAdded,
           cardsStudied: totals.cardsStudied + day.cardsStudied,
@@ -399,136 +379,19 @@ export class DashboardComponent implements OnInit {
         }),
         { cardsAdded: 0, cardsStudied: 0, reviews: 0 },
       );
-      this.activityMonthLabel = new Intl.DateTimeFormat('pt-BR', {
-        month: 'long',
-        year: 'numeric',
-      }).format(monthStart);
-      const retainedDate =
-        this.selectedActivityDate >= startDate && this.selectedActivityDate <= endDate
-          ? this.selectedActivityDate
-          : todayDate >= startDate && todayDate <= endDate
-            ? todayDate
-            : startDate;
-      const selectedDay = this.activityDays.find((day) => day?.date === retainedDate);
-      if (selectedDay) {
-        this.selectActivityDay(selectedDay);
-      }
     } catch (error) {
       this.activityError =
         error instanceof Error
           ? error.message
-          : 'Não foi possível carregar o calendário de atividade.';
+          : 'Não foi possível carregar seu resumo de estudos.';
     } finally {
       this.activityLoading = false;
       this.changeDetector.markForCheck();
     }
   }
 
-  selectActivityDay(day: ActivityCell) {
-    if (day.isFuture && !day.plannedActivities.length) {
-      return;
-    }
-
-    this.selectedActivityDate = day.date;
-    this.selectedActivity = day;
-    this.selectedPlannedActivities = day.plannedActivities;
-    this.selectedActivityLabel = this.formatActivityLabel(day.date);
-  }
-
-  async loadTodayPlan() {
-    this.todayPlanLoading = true;
-    this.todayPlanError = '';
-    const todayDate = this.formatDate(new Date());
-    try {
-      this.dailyPlanActivities = await this.studyPlanService.listActivities(todayDate, todayDate);
-    } catch (error) {
-      this.todayPlanError =
-        error instanceof Error ? error.message : 'Não foi possível carregar o plano de hoje.';
-    } finally {
-      this.todayPlanLoading = false;
-      this.changeDetector.markForCheck();
-    }
-  }
-
-  async completePlannedActivity(activity: StudyActivity) {
-    if (this.savingPlanActivity) {
-      return;
-    }
-    this.savingPlanActivity = true;
-    this.todayPlanError = '';
-    try {
-      await this.studyPlanService.updateStatus(activity.id, 'completed');
-      await Promise.all([this.loadActivity(), this.loadTodayPlan()]);
-      if (window.confirm('Atividade concluída. Quer criar cartões a partir do seu resumo?')) {
-        this.goToFlashcardGeneration(activity);
-      }
-    } catch (error) {
-      this.todayPlanError =
-        error instanceof Error ? error.message : 'Não foi possível concluir a atividade.';
-    } finally {
-      this.savingPlanActivity = false;
-      this.changeDetector.markForCheck();
-    }
-  }
-
-  goToFlashcardGeneration(activity: StudyActivity) {
-    const source = activity.lesson_reference
-      ? `${activity.lesson_reference} — ${activity.title}`
-      : activity.title;
-    void this.router.navigate(['/generate-cards'], { queryParams: { source } });
-  }
-
   goToStudyPlan() {
     void this.router.navigate(['/study-plan']);
-  }
-
-  get estimatedReviewMinutes() {
-    return this.stats.dueToday === 0 ? 0 : Math.max(1, Math.ceil(this.stats.dueToday * 0.6));
-  }
-
-  get todayPlanSummary() {
-    const pending = this.dailyPlanActivities.filter(
-      (activity) => activity.status === 'planned' || activity.status === 'unrecorded',
-    );
-    if (!pending.length) {
-      return 'Plano de hoje em dia — nenhuma atividade pendente.';
-    }
-
-    const counts = [
-      { type: 'study_lesson', singular: 'lição', plural: 'lições' },
-      { type: 'watch_video', singular: 'vídeo', plural: 'vídeos' },
-      { type: 'write_english', singular: 'resumo', plural: 'resumos' },
-      { type: 'conversation_class', singular: 'conversa', plural: 'conversas' },
-      { type: 'flashcard_review', singular: 'revisão', plural: 'revisões' },
-    ]
-      .map(({ type, singular, plural }) => {
-        const count = pending.filter((activity) => activity.activity_type === type).length;
-        return count ? `${count} ${count === 1 ? singular : plural}` : '';
-      })
-      .filter(Boolean);
-
-    return `${counts.join(', ')} pendentes no plano de hoje.`;
-  }
-
-  get canGoToNextMonth() {
-    const now = new Date();
-    return (
-      this.displayedMonth.getFullYear() < now.getFullYear() ||
-      (this.displayedMonth.getFullYear() === now.getFullYear() &&
-        this.displayedMonth.getMonth() < now.getMonth())
-    );
-  }
-
-  changeMonth(offset: -1 | 1) {
-    this.displayedMonth = new Date(
-      this.displayedMonth.getFullYear(),
-      this.displayedMonth.getMonth() + offset,
-      1,
-    );
-    this.selectedActivityDate = '';
-    this.selectedActivity = { date: '', cardsAdded: 0, cardsStudied: 0, reviews: 0 };
-    this.selectedPlannedActivities = [];
-    void this.loadActivity();
   }
 
   async loadStats() {
@@ -546,6 +409,143 @@ export class DashboardComponent implements OnInit {
     }
   }
 
+  async loadLearningInsights() {
+    this.insightsLoading = true;
+    this.insightsError = '';
+
+    try {
+      this.learningInsights = await this.cardService.getLearningInsights();
+    } catch (error) {
+      this.insightsError =
+        error instanceof Error ? error.message : 'Não foi possível carregar suas estatísticas.';
+    } finally {
+      this.insightsLoading = false;
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  weeklyBarHeight(count: number) {
+    const maximum = Math.max(1, ...this.learningInsights.weeklyProgress.map((week) => week.reviews));
+    return count ? Math.max(8, (count / maximum) * 100) : 3;
+  }
+
+  get goalProgress() {
+    return Math.min(this.stats.reviewedToday, this.dailyGoal);
+  }
+
+  get goalRingBackground() {
+    const progress = this.statsLoading ? 0 : (this.goalProgress / this.dailyGoal) * 100;
+    return `conic-gradient(#34d399 ${progress}%, rgba(148, 163, 184, 0.2) ${progress}% 100%)`;
+  }
+
+  get studyNowCount() {
+    if (this.statsLoading) {
+      return this.dailyGoal;
+    }
+    return this.stats.dueToday
+      ? Math.min(this.stats.dueToday, this.dailyGoal)
+      : this.dailyGoal;
+  }
+
+  get streakReminder() {
+    if (this.stats.reviewedToday > 0) {
+      return 'Boa! Você já praticou hoje. Continue no seu ritmo para manter a sequência.';
+    }
+    if (this.streakDays > 0) {
+      return `Sua sequência de ${this.streakDays} ${this.streakDays === 1 ? 'dia está' : 'dias está'} viva. Uma revisão hoje mantém o ritmo!`;
+    }
+    return 'Um cartão hoje já é um ótimo começo. Que tal estudar um pouquinho?';
+  }
+
+  goToStudyNow() {
+    void this.router.navigate(['/review'], {
+      queryParams: { limit: this.studyNowCount, all: this.stats.dueToday === 0 },
+    });
+  }
+
+  goToDifficultReview() {
+    void this.router.navigate(['/review'], { queryParams: { difficult: 'true' } });
+  }
+
+  async updateDailyGoal(event: Event) {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const goal = Number(input.value);
+    if (!Number.isInteger(goal) || goal < 1 || goal > 100) {
+      this.dailyGoalError = 'Escolha uma meta entre 1 e 100 cartões.';
+      input.value = String(this.dailyGoal);
+      return;
+    }
+
+    try {
+      const { data } = await this.auth.getSession();
+      const userId = data.session?.user.id;
+      if (!userId) {
+        throw new Error('Não foi possível identificar sua conta para salvar a meta.');
+      }
+      window.localStorage.setItem(`flashcards-daily-goal-${userId}`, String(goal));
+      this.dailyGoal = goal;
+      this.dailyGoalError = '';
+    } catch (error) {
+      this.dailyGoalError =
+        error instanceof Error ? error.message : 'Não foi possível salvar sua meta diária.';
+      input.value = String(this.dailyGoal);
+    } finally {
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  private async loadDailyGoal() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const { data } = await this.auth.getSession();
+      const userId = data.session?.user.id;
+      if (!userId) {
+        return;
+      }
+      const storedGoal = window.localStorage.getItem(`flashcards-daily-goal-${userId}`);
+      if (storedGoal === null) {
+        return;
+      }
+      const goal = Number(storedGoal);
+      if (Number.isInteger(goal) && goal >= 1 && goal <= 100) {
+        this.dailyGoal = goal;
+      } else {
+        this.dailyGoalError = 'A meta salva é inválida. Escolha um novo valor entre 1 e 100.';
+      }
+    } catch {
+      this.dailyGoalError = 'Não foi possível ler sua meta diária neste navegador.';
+    } finally {
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  private calculateStreak(activity: DailyActivity[], todayDate: string) {
+    const activeDates = new Set(
+      activity.filter((day) => day.reviews > 0).map((day) => day.date),
+    );
+    const today = new Date();
+    const startOffset = activeDates.has(todayDate) ? 0 : 1;
+    let streak = 0;
+
+    for (let offset = startOffset; offset < activity.length + startOffset; offset += 1) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - offset);
+      if (!activeDates.has(this.formatDate(date))) {
+        break;
+      }
+      streak += 1;
+    }
+
+    return streak;
+  }
+
   goToQuickCard() {
     void this.router.navigate(['/cards/new']);
   }
@@ -558,86 +558,11 @@ export class DashboardComponent implements OnInit {
     void this.router.navigate(['/review']);
   }
 
-  private buildActivityDays(
-    monthStart: Date,
-    activity: DailyActivity[],
-    todayDate: string,
-    plannedActivities: StudyActivity[],
-  ): Array<ActivityCell | null> {
-    const activityByDate = new Map(activity.map((day) => [day.date, day]));
-    const plansByDate = new Map<string, StudyActivity[]>();
-    for (const planActivity of plannedActivities) {
-      const dayActivities = plansByDate.get(planActivity.starts_on) ?? [];
-      dayActivities.push(planActivity);
-      plansByDate.set(planActivity.starts_on, dayActivities);
-    }
-    const days: Array<ActivityCell | null> = Array(monthStart.getDay()).fill(null);
-    const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
-
-    for (let dayNumber = 1; dayNumber <= daysInMonth; dayNumber += 1) {
-      const current = new Date(monthStart.getFullYear(), monthStart.getMonth(), dayNumber);
-      const date = this.formatDate(current);
-      const dayPlans = plansByDate.get(date) ?? [];
-      const record = activityByDate.get(date) ?? {
-        date,
-        cardsAdded: 0,
-        cardsStudied: 0,
-        reviews: 0,
-      };
-      const total = record.cardsAdded + record.reviews + dayPlans.length;
-      const level = total === 0 ? 0 : total === 1 ? 1 : total <= 3 ? 2 : total <= 6 ? 3 : 4;
-      const isFuture = date > todayDate;
-      const isToday = date === todayDate;
-      const dayLabel = this.formatActivityLabel(date);
-      const title =
-        `${dayLabel}: ${record.cardsAdded} cards adicionados, ` +
-        `${record.cardsStudied} cards estudados, ${record.reviews} revisões, ` +
-        `${dayPlans.length} atividades planejadas`;
-
-      days.push({
-        ...record,
-        level,
-        title,
-        isFuture,
-        isToday,
-        dayNumber,
-        plannedActivities: dayPlans,
-      });
-    }
-
-    return days;
-  }
-
-  activityTypeLabel(type: StudyActivity['activity_type']) {
-    const labels: Record<StudyActivity['activity_type'], string> = {
-      study_lesson: 'Aula',
-      flashcard_review: 'Revisão',
-      watch_video: 'Vídeo',
-      write_english: 'Escrita',
-      conversation_class: 'Conversação',
-    };
-    return labels[type];
-  }
-
-  activityStatusLabel(status: StudyActivity['status']) {
-    return status === 'completed' ? 'Concluída' : status === 'planned' ? 'Planejada' : 'Pendente';
-  }
-
   private formatDate(date: Date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  }
-
-  private formatActivityLabel(date: string) {
-    const [year, month, day] = date.split('-').map(Number);
-    return new Intl.DateTimeFormat('pt-BR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(new Date(year, month - 1, day));
   }
 
   async exportJson() {

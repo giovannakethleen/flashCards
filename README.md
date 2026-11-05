@@ -87,9 +87,11 @@ O painel também usa um calendário de atividade. Depois de criar a tabela `flas
 
 Essa migração registra novas adições automaticamente, preenche a data de criação dos cartões que ainda existem e passa a registrar cada revisão junto com a atualização do cartão. Ela não consegue recuperar revisões antigas por dia, pois esses eventos não eram armazenados. O calendário mostra cartões adicionados, cartões distintos estudados e número de tentativas de revisão por dia.
 
+O painel também mostra a taxa de acerto, a evolução semanal das últimas oito semanas, os cartões com mais erros e uma sequência de dias de revisão. Os gráficos por período dependem dos eventos registrados por essa migração e não reconstroem o histórico anterior à sua instalação. A meta diária pode ser ajustada entre 1 e 100 cartões; ela fica salva no armazenamento local do navegador para cada conta e não é sincronizada entre dispositivos. O anel conta os cartões distintos revisados no dia. **Estudar agora** usa a meta como limite da sessão, e **Revisar difíceis** inicia uma sessão apenas com cartões que têm erros registrados.
+
 O cadastro também pode guardar o nível de inglês para filtrar a coleção. Em uma instalação nova, a coluna já é criada por `supabase/flashcards.sql`; se a tabela já existir, aplique uma vez `supabase/flashcard-level.sql`.
 
-Para habilitar **Meu plano de estudos**, aplique também `supabase/study-plan.sql`. A tela permite planejar atividades, acompanhar as revisões previstas dos flashcards e registrar conclusão. As atividades são protegidas por RLS e associadas à conta autenticada.
+Para habilitar **Meu plano de estudos**, aplique também `supabase/study-plan.sql` e `supabase/study-notes.sql`. O calendário em Meu plano reúne atividade passada, atividades futuras e revisões previstas, com visões de mês, semana e dia. A visão mensal usa a intensidade da atividade como mapa de calor. A aba **Notas** inclui anotações diárias, notas livres com busca, salvamento automático, criação de flashcards com IA e explicações. As notas e atividades são protegidas por RLS e associadas à conta autenticada.
 
 O botão **Criar plano mensal** gera atividades separadas do modelo **A1 — Level 2** para o mês escolhido, incluindo duas lições de 30 minutos na maioria dos dias úteis, revisões e as atividades temáticas do cronograma. A meta diária de 3h a 3h30 é apenas orientativa. Cada atividade pode ser editada, adiada, marcada como concluída/não realizada ou removida; o tempo real é opcional. Para meses já iniciados, as datas anteriores ficam no calendário como **Ainda não registrada** até a pessoa atualizar o status.
 
@@ -97,7 +99,7 @@ Se `study_plan_activities` já existe no Supabase, aplique uma vez `supabase/stu
 
 ### Sugestões de flashcards com Gemini (opcional)
 
-A página **Criar com IA** permite colar um resumo revisado de qualquer atividade de estudo e pedir de 3 a 5 sugestões; ela também pode ser aberta pelo botão de geração em cada atividade do plano, que preenche a origem automaticamente. A IA preenche as traduções ou respostas em português; elas podem ser revisadas e editadas antes de salvar. Somente o resumo e o nível de inglês escolhido são enviados, e apenas após solicitar a geração. As sugestões aparecem como rascunhos editáveis: a pessoa pode selecionar, excluir ou corrigir cada uma; somente os rascunhos selecionados são salvos no Supabase. A conclusão da atividade e o cadastro manual continuam disponíveis se a geração falhar ou não for usada.
+A página **Criar com IA** permite colar um resumo revisado de qualquer atividade de estudo e pedir de 3 a 5 sugestões; ela também pode ser aberta por uma atividade do plano ou por uma nota livre, que preenche o texto de origem automaticamente. A pessoa também pode pedir uma explicação em português a partir de uma nota. O texto só é enviado ao Gemini após solicitar uma dessas ações. A IA preenche as traduções ou respostas em português; elas podem ser revisadas e editadas antes de salvar. As sugestões aparecem como rascunhos editáveis: a pessoa pode selecionar, excluir ou corrigir cada uma; somente os rascunhos selecionados são salvos no Supabase. A conclusão da atividade e o cadastro manual continuam disponíveis se a geração falhar ou não for usada.
 
 O texto é processado pelo Gemini. Na camada gratuita, o Google informa que o conteúdo pode ser usado para melhorar seus produtos. Não envie dados pessoais ou conteúdo que não queira compartilhar. O modelo fixo é `gemini-3.5-flash-lite`, listado na camada gratuita na documentação consultada em 4 de novembro de 2026. Limites variam por projeto e podem mudar; ao receber um limite excedido, a aplicação pede para tentar novamente depois e não muda para um modelo pago nem ativa faturamento automaticamente.
 
@@ -122,6 +124,8 @@ Referências oficiais consultadas em 4 de novembro de 2026: [preços e camada gr
 ## Prática de pronúncia (opcional)
 
 A gravação é solicitada somente quando a pessoa toca em **Gravar**, fica temporariamente no navegador e é descartada ao sair da prática ou após o envio. A avaliação automática fica desativada por padrão; sem ela, é possível gravar e reproduzir a própria fala sem enviar áudio.
+
+O botão **Falar a frase** usa o reconhecimento de fala disponível no navegador para comparar a transcrição com o texto e mostrar uma correspondência aproximada. Isso não é uma avaliação fonética; disponibilidade e processamento do áudio dependem do navegador e de suas configurações. A transcrição não é salva pelo app.
 
 Para manter a integração opcional:
 

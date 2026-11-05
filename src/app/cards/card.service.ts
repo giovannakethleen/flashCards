@@ -32,11 +32,46 @@ export interface DailyActivity {
   reviews: number;
 }
 
+export interface DifficultCard {
+  id: string;
+  english_text: string;
+  portuguese_text: string;
+  mistake_count: number;
+  review_count: number;
+}
+
+export interface WeeklyLearningProgress {
+  weekStart: string;
+  label: string;
+  reviews: number;
+  accuracy: number | null;
+}
+
+export interface LearningInsights {
+  accuracy: number | null;
+  reviewCount: number;
+  difficultCards: DifficultCard[];
+  weeklyProgress: WeeklyLearningProgress[];
+}
+
 interface DailyActivityRow {
   activity_date: string;
   cards_added: number;
   cards_studied: number;
   reviews: number;
+}
+
+interface ReviewActivityRow {
+  occurred_at: string;
+  review_result: 'miss' | 'hard' | 'remembered' | 'easy';
+}
+
+interface LearningCardRow {
+  id: string;
+  english_text: string;
+  portuguese_text: string;
+  mistake_count: number | null;
+  review_count: number | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -74,7 +109,7 @@ export class CardService {
       english_text: input.english_text.trim(),
       portuguese_text: input.portuguese_text.trim(),
       focus_word: input.focus_word?.trim() || null,
-      category: input.category?.trim() || null,
+      category: this.normalizeCategory(input.category),
       source: input.source?.trim() || null,
       audio_info: input.audio_info?.trim() || null,
       level: input.level?.trim() || null,
@@ -107,7 +142,7 @@ export class CardService {
       english_text: input.english_text.trim(),
       portuguese_text: input.portuguese_text.trim(),
       focus_word: input.focus_word?.trim() || null,
-      category: input.category?.trim() || null,
+      category: this.normalizeCategory(input.category),
       source: input.source?.trim() || null,
       audio_info: input.audio_info?.trim() || null,
       level: input.level?.trim() || null,
@@ -164,6 +199,29 @@ export class CardService {
     return (data ?? []) as FlashcardRecord[];
   }
 
+  async getDifficultCards(limit = 5): Promise<FlashcardRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error('A quantidade de cartões difíceis deve estar entre 1 e 100.');
+    }
+
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const { data, error } = await client
+      .from('flashcards')
+      .select('*')
+      .eq('user_id', user.id)
+      .gt('mistake_count', 0)
+      .order('mistake_count', { ascending: false })
+      .order('review_count', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(error.message || 'Não foi possível carregar os cartões mais difíceis.');
+    }
+
+    return (data ?? []) as FlashcardRecord[];
+  }
+
   async getDashboardStats() {
     const client = this.getClient();
     const user = this.getCurrentUser();
@@ -198,6 +256,122 @@ export class CardService {
     };
   }
 
+  async getLearningInsights(): Promise<LearningInsights> {
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const today = new Date();
+    const currentWeekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    currentWeekStart.setDate(currentWeekStart.getDate() - ((currentWeekStart.getDay() + 6) % 7));
+    const firstWeekStart = new Date(currentWeekStart);
+    firstWeekStart.setDate(firstWeekStart.getDate() - 49);
+
+    const pageSize = 1000;
+    const loadCards = async () => {
+      const cards: LearningCardRow[] = [];
+      for (let offset = 0; ; offset += pageSize) {
+        const { data, error } = await client
+          .from('flashcards')
+          .select('id, english_text, portuguese_text, mistake_count, review_count')
+          .eq('user_id', user.id)
+          .order('id', { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (error) {
+          throw new Error(error.message || 'Não foi possível carregar suas estatísticas de estudo.');
+        }
+        const page = (data ?? []) as LearningCardRow[];
+        cards.push(...page);
+        if (page.length < pageSize) {
+          return cards;
+        }
+      }
+    };
+    const loadRecentReviews = async () => {
+      const reviews: ReviewActivityRow[] = [];
+      for (let offset = 0; ; offset += pageSize) {
+        const { data, error } = await client
+          .from('flashcard_activity')
+          .select('occurred_at, review_result')
+          .eq('user_id', user.id)
+          .eq('activity_type', 'card_reviewed')
+          .gte('occurred_at', firstWeekStart.toISOString())
+          .order('occurred_at', { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (error) {
+          throw new Error(error.message || 'Não foi possível carregar suas estatísticas de estudo.');
+        }
+        const page = (data ?? []) as ReviewActivityRow[];
+        reviews.push(...page);
+        if (page.length < pageSize) {
+          return reviews;
+        }
+      }
+    };
+    const [cards, reviews] = await Promise.all([loadCards(), loadRecentReviews()]);
+    const reviewCount = cards.reduce((total, card) => total + Number(card.review_count ?? 0), 0);
+    const mistakeCount = cards.reduce(
+      (total, card) => total + Number(card.mistake_count ?? 0),
+      0,
+    );
+    const weeklyCounts = Array.from({ length: 8 }, (_, index) => {
+      const start = new Date(firstWeekStart);
+      start.setDate(start.getDate() + index * 7);
+      return { weekStart: this.formatDate(start), reviews: 0, correct: 0 };
+    });
+    const weekIndexByStart = new Map(
+      weeklyCounts.map((week, index) => [week.weekStart, index]),
+    );
+
+    for (const review of reviews) {
+      const occurredAt = new Date(review.occurred_at);
+      const reviewWeekStart = new Date(
+        occurredAt.getFullYear(),
+        occurredAt.getMonth(),
+        occurredAt.getDate(),
+      );
+      reviewWeekStart.setDate(
+        reviewWeekStart.getDate() - ((reviewWeekStart.getDay() + 6) % 7),
+      );
+      const weekIndex = weekIndexByStart.get(this.formatDate(reviewWeekStart));
+
+      if (weekIndex !== undefined) {
+        weeklyCounts[weekIndex].reviews += 1;
+        if (review.review_result === 'remembered' || review.review_result === 'easy') {
+          weeklyCounts[weekIndex].correct += 1;
+        }
+      }
+    }
+
+    return {
+      accuracy:
+        reviewCount > 0
+          ? Math.round((Math.max(0, reviewCount - mistakeCount) / reviewCount) * 100)
+          : null,
+      reviewCount,
+      difficultCards: cards
+        .filter((card) => Number(card.mistake_count ?? 0) > 0)
+        .slice(0, 5)
+        .map((card) => ({
+          id: card.id,
+          english_text: card.english_text,
+          portuguese_text: card.portuguese_text,
+          mistake_count: Number(card.mistake_count ?? 0),
+          review_count: Number(card.review_count ?? 0),
+        })),
+      weeklyProgress: weeklyCounts.map(({ weekStart, reviews, correct }) => ({
+        weekStart,
+        label: new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(
+          new Date(
+            Number(weekStart.slice(0, 4)),
+            Number(weekStart.slice(5, 7)) - 1,
+            Number(weekStart.slice(8, 10)),
+          ),
+        ),
+        reviews,
+        accuracy: reviews ? Math.round((correct / reviews) * 100) : null,
+      })),
+    };
+  }
+
   async getActivityCalendar(
     startDate: string,
     endDate: string,
@@ -222,6 +396,13 @@ export class CardService {
       cardsStudied: Number(row.cards_studied),
       reviews: Number(row.reviews),
     }));
+  }
+
+  private formatDate(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   async listCards(filters?: { search?: string; category?: string }): Promise<FlashcardRecord[]> {
@@ -276,7 +457,7 @@ export class CardService {
       english_text: input.english_text?.trim() ?? undefined,
       portuguese_text: input.portuguese_text?.trim() ?? undefined,
       focus_word: input.focus_word?.trim() || null,
-      category: input.category?.trim() || null,
+      category: this.normalizeCategory(input.category),
       source: input.source?.trim() || null,
       audio_info: input.audio_info?.trim() || null,
       level: input.level?.trim() || null,
@@ -401,5 +582,9 @@ export class CardService {
     if (error) {
       throw new Error(error.message || 'Não foi possível atualizar o progresso do cartão.');
     }
+  }
+
+  private normalizeCategory(category?: string | null) {
+    return category?.trim().toLocaleLowerCase() || null;
   }
 }

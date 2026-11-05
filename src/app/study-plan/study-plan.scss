@@ -21,6 +21,34 @@ app-study-plan {
     order: 2;
   }
 
+  .plan-tabs {
+    display: flex;
+    align-self: flex-start;
+    gap: 0.25rem;
+    margin-bottom: 0.9rem;
+    padding: 3px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 9px;
+    background: rgba(2, 6, 23, 0.35);
+  }
+
+  .plan-tabs button {
+    min-height: 34px;
+    padding: 0.4rem 0.8rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #94a3b8;
+    font: inherit;
+    font-size: 0.74rem;
+    cursor: pointer;
+  }
+
+  .plan-tabs button.active {
+    background: rgba(56, 189, 248, 0.16);
+    color: #bae6fd;
+  }
+
   .day-panel {
     order: 4;
   }
@@ -288,6 +316,27 @@ app-study-plan {
     background: rgba(14, 116, 144, 0.12);
   }
 
+  .month-day[data-level='1'] {
+    background: rgba(14, 68, 41, 0.2);
+  }
+
+  .month-day[data-level='2'] {
+    background: rgba(0, 109, 50, 0.28);
+  }
+
+  .month-day[data-level='3'] {
+    background: rgba(38, 166, 65, 0.34);
+  }
+
+  .month-day[data-level='4'] {
+    background: rgba(57, 211, 83, 0.42);
+  }
+
+  .month-day.selected,
+  .month-day:hover {
+    box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.55);
+  }
+
   .month-day.today .day-number,
   .week-day.today > strong {
     display: grid;
@@ -394,6 +443,14 @@ app-study-plan {
     font-size: 0.6rem;
   }
 
+  .history-marker {
+    overflow: hidden;
+    color: #86efac;
+    font-size: 0.58rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .more-items {
     color: #94a3b8;
     font-size: 0.58rem;
@@ -423,6 +480,12 @@ app-study-plan {
     background: rgba(14, 116, 144, 0.1);
   }
 
+  .week-day.drop-target {
+    outline: 2px dashed #38bdf8;
+    outline-offset: -4px;
+    background: rgba(14, 116, 144, 0.22);
+  }
+
   .week-day-name {
     display: block;
     color: #94a3b8;
@@ -442,6 +505,14 @@ app-study-plan {
     background: rgba(56, 189, 248, 0.13);
     color: #bae6fd;
     font-size: 0.6rem;
+  }
+
+  .week-activity[draggable='true'] {
+    cursor: grab;
+  }
+
+  .week-activity[draggable='true']:active {
+    cursor: grabbing;
   }
 
   .day-overview {
@@ -472,6 +543,231 @@ app-study-plan {
   .day-panel {
     margin-top: 1rem;
     padding: clamp(0.9rem, 2vw, 1.25rem);
+  }
+
+  .day-history {
+    margin: 0 0 0.9rem;
+    padding: 0.75rem;
+    border: 1px solid rgba(52, 211, 153, 0.18);
+    border-radius: 9px;
+    background: rgba(6, 78, 59, 0.12);
+  }
+
+  .day-history h3 {
+    margin: 0 0 0.55rem;
+    color: #a7f3d0;
+    font-size: 0.74rem;
+  }
+
+  .day-history-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    color: #94a3b8;
+    font-size: 0.68rem;
+  }
+
+  .day-history-stats strong {
+    color: #e2e8f0;
+  }
+
+  .day-note {
+    display: grid;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+
+  .day-note label {
+    color: #cbd5e1;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .day-note textarea,
+  .note-search input,
+  .note-title-input,
+  .free-note-content {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    background: #0b1220;
+    color: #e2e8f0;
+    font: inherit;
+    font-size: 0.75rem;
+  }
+
+  .day-note textarea {
+    min-height: 84px;
+    resize: vertical;
+  }
+
+  .day-note textarea:focus,
+  .note-search input:focus,
+  .note-title-input:focus,
+  .free-note-content:focus {
+    border-color: #38bdf8;
+    outline: 2px solid rgba(56, 189, 248, 0.15);
+  }
+
+  .note-save-status {
+    color: #94a3b8;
+    font-size: 0.64rem;
+  }
+
+  .notes-workspace {
+    display: grid;
+    min-height: 460px;
+    grid-template-columns: minmax(220px, 0.35fr) minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 15px;
+    background: rgba(15, 23, 42, 0.76);
+  }
+
+  .notes-sidebar {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-right: 1px solid rgba(148, 163, 184, 0.14);
+  }
+
+  .notes-list-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .notes-list-heading h2 {
+    margin: 0;
+    color: #e2e8f0;
+    font-size: 0.95rem;
+  }
+
+  .notes-list-heading .primary-button {
+    min-height: 34px;
+    padding: 0.45rem 0.55rem;
+    font-size: 0.65rem;
+  }
+
+  .note-search {
+    display: block;
+  }
+
+  .note-search input {
+    min-height: 36px;
+    font-size: 0.7rem;
+  }
+
+  .notes-list {
+    display: grid;
+    max-height: 620px;
+    gap: 0.4rem;
+    overflow-y: auto;
+  }
+
+  .note-list-item {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+    padding: 0.65rem;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .note-list-item:hover,
+  .note-list-item.selected {
+    border-color: rgba(56, 189, 248, 0.24);
+    background: rgba(14, 116, 144, 0.1);
+  }
+
+  .note-list-item strong,
+  .note-list-item span,
+  .note-list-item small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .note-list-item strong {
+    color: #e2e8f0;
+    font-size: 0.74rem;
+  }
+
+  .note-list-item span,
+  .note-list-item small,
+  .notes-empty {
+    color: #94a3b8;
+    font-size: 0.64rem;
+  }
+
+  .notes-empty {
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .note-editor {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: clamp(0.8rem, 2vw, 1.2rem);
+  }
+
+  .note-title-input {
+    min-height: 42px;
+    color: #f1f5f9;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .free-note-content {
+    min-height: 280px;
+    resize: vertical;
+    line-height: 1.6;
+  }
+
+  .note-editor-footer,
+  .note-ai-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+
+  .note-ai-actions {
+    justify-content: flex-start;
+    padding-top: 0.7rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+  }
+
+  .note-explanation {
+    padding: 0.8rem;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 9px;
+    background: rgba(14, 116, 144, 0.08);
+  }
+
+  .note-explanation h3 {
+    margin: 0 0 0.4rem;
+    color: #bae6fd;
+    font-size: 0.78rem;
+  }
+
+  .note-explanation p {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
   }
 
   .day-heading {
@@ -857,6 +1153,23 @@ app-study-plan {
 
     .calendar-panel {
       padding: 0.65rem;
+    }
+
+    .notes-workspace {
+      grid-template-columns: 1fr;
+    }
+
+    .notes-sidebar {
+      border-right: 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .notes-list {
+      max-height: 240px;
+    }
+
+    .free-note-content {
+      min-height: 220px;
     }
 
     .calendar-toolbar {

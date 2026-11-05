@@ -133,4 +133,51 @@ export class FlashcardGenerationService {
       cards,
     };
   }
+
+  async explain(summary: string): Promise<string> {
+    const client = getSupabaseClient();
+    if (!client) {
+      throw new Error('A configuração do Supabase não está disponível.');
+    }
+
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+    if (sessionError || !sessionData.session) {
+      throw new Error('Sua sessão expirou. Entre novamente para pedir uma explicação.');
+    }
+
+    const { data, error } = await client.functions.invoke('generate-flashcards', {
+      body: { summary, action: 'explain' },
+    });
+
+    if (error) {
+      if (error instanceof Error && 'context' in error && error.context instanceof Response) {
+        if (error.context.status === 401) {
+          throw new Error('Sua sessão expirou. Entre novamente para pedir uma explicação.');
+        }
+        if (error.context.status === 413 || error.context.status === 400) {
+          throw new Error('O texto está vazio ou passou do limite de 5.000 caracteres.');
+        }
+        if (error.context.status === 429) {
+          throw new Error(
+            'O limite gratuito do Gemini pode ter sido atingido. Tente novamente mais tarde.',
+          );
+        }
+        if (error.context.status === 503) {
+          throw new Error('A explicação com IA não está configurada neste momento.');
+        }
+      }
+      throw new Error('Não foi possível explicar este conteúdo. Tente novamente mais tarde.');
+    }
+
+    if (
+      !isRecord(data) ||
+      typeof data['explanation'] !== 'string' ||
+      !data['explanation'].trim() ||
+      data['explanation'].length > 6000
+    ) {
+      throw new Error('O serviço retornou uma explicação inválida. Tente novamente.');
+    }
+
+    return data['explanation'].trim();
+  }
 }

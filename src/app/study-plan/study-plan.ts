@@ -1,12 +1,15 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
+import { CardService, type DailyActivity } from '../cards/card.service';
+import { FlashcardGenerationService } from '../core/flashcard-generation.service';
 import {
   StudyPlanService,
   type ScheduledReview,
   type StudyActivity,
   type StudyActivityInput,
+  type StudyNote,
   type StudyActivityStatus,
   type StudyActivityType,
 } from './study-plan.service';
@@ -234,6 +237,26 @@ function createLevelTwoSchedule(month: string, planName: string): StudyActivityI
         </div>
       }
 
+      <nav class="plan-tabs" aria-label="Meu plano">
+        <button
+          type="button"
+          [class.active]="activeTab === 'calendar'"
+          [attr.aria-pressed]="activeTab === 'calendar'"
+          (click)="setTab('calendar')"
+        >
+          Calendário
+        </button>
+        <button
+          type="button"
+          [class.active]="activeTab === 'notes'"
+          [attr.aria-pressed]="activeTab === 'notes'"
+          (click)="setTab('notes')"
+        >
+          Notas
+        </button>
+      </nav>
+
+      @if (activeTab === 'calendar') {
       <section class="plan-generator" aria-label="Criar plano mensal">
         <p class="plan-guidance">
           Meta orientativa: cerca de 3h a 3h30 por dia, incluindo o curso. Ajuste, adie ou remova
@@ -335,10 +358,17 @@ function createLevelTwoSchedule(month: string, planName: string): StudyActivityI
                     class="month-day"
                     [class.today]="day.isToday"
                     [class.selected]="day.isSelected"
+                    [attr.data-level]="activityLevel(day.date)"
                     [attr.aria-pressed]="day.isSelected"
                     [attr.aria-label]="
                       formatDateLabel(day.date) +
                       ', ' +
+                      activityFor(day.date).reviews +
+                      ' revisões realizadas, ' +
+                      activityFor(day.date).cardsAdded +
+                      ' cartões adicionados, ' +
+                      activityFor(day.date).cardsStudied +
+                      ' cartões estudados, ' +
                       activitiesOn(day.date).length +
                       ' atividades'
                     "
@@ -364,6 +394,17 @@ function createLevelTwoSchedule(month: string, planName: string): StudyActivityI
                           +{{ activitiesOn(day.date).length - 2 }} mais
                         </span>
                       }
+                      @if (
+                        activityFor(day.date).reviews ||
+                        activityFor(day.date).cardsAdded ||
+                        activityFor(day.date).cardsStudied
+                      ) {
+                        <span class="history-marker">
+                          {{ activityFor(day.date).cardsAdded }} adicionados ·
+                          {{ activityFor(day.date).cardsStudied }} estudados ·
+                          {{ activityFor(day.date).reviews }} revisões
+                        </span>
+                      }
                       @if (reviewsOn(day.date).length) {
                         <span class="review-marker">
                           ◷ {{ reviewsOn(day.date).length }} revisões
@@ -385,7 +426,11 @@ function createLevelTwoSchedule(month: string, planName: string): StudyActivityI
                 class="week-day"
                 [class.selected]="day.isSelected"
                 [class.today]="day.isToday"
+                [class.drop-target]="dropTargetDate === day.date"
                 [attr.aria-pressed]="day.isSelected"
+                (dragover)="allowActivityDrop($event, day.date)"
+                (dragleave)="clearDropTarget(day.date)"
+                (drop)="dropActivity($event, day.date)"
                 (click)="selectDate(day.date)"
               >
                 <span class="week-day-name">{{ weekdayLong(day.date) }}</span>
@@ -394,12 +439,14 @@ function createLevelTwoSchedule(month: string, planName: string): StudyActivityI
                   @for (activity of activitiesOn(day.date).slice(0, 3); track activity.id) {
                     <span
                       class="week-activity"
+                      [draggable]="activity.status === 'planned' || activity.status === 'unrecorded'"
                       [class]="
                         'week-activity status-' +
                         activity.status +
                         ' type-' +
                         activity.activity_type
                       "
+                      (dragstart)="startActivityDrag($event, activity)"
                     >
                       {{ activity.start_time ? activity.start_time.slice(0, 5) + ' · ' : ''
                       }}{{ activity.title }} · {{ activity.duration_minutes ?? '—' }}m
@@ -410,6 +457,17 @@ function createLevelTwoSchedule(month: string, planName: string): StudyActivityI
                   }
                   @if (reviewsOn(day.date).length) {
                     <span class="review-marker">◷ {{ reviewsOn(day.date).length }} revisões</span>
+                  }
+                  @if (
+                    activityFor(day.date).cardsAdded ||
+                    activityFor(day.date).cardsStudied ||
+                    activityFor(day.date).reviews
+                  ) {
+                    <span class="history-marker">
+                      {{ activityFor(day.date).cardsAdded }} adicionados ·
+                      {{ activityFor(day.date).cardsStudied }} estudados ·
+                      {{ activityFor(day.date).reviews }} revisões
+                    </span>
                   }
                 </span>
               </button>
@@ -424,6 +482,9 @@ function createLevelTwoSchedule(month: string, planName: string): StudyActivityI
             </span>
             <span>Planejado: {{ selectedDayPlannedMinutes }} min</span>
             <span>Real: {{ selectedDayActualMinutes }} min</span>
+            <span>{{ activityFor(selectedDate).cardsAdded }} cartões adicionados</span>
+            <span>{{ activityFor(selectedDate).cardsStudied }} cartões estudados</span>
+            <span>{{ activityFor(selectedDate).reviews }} revisões</span>
           </div>
         }
       </section>
@@ -438,6 +499,28 @@ function createLevelTwoSchedule(month: string, planName: string): StudyActivityI
             ＋ Adicionar
           </button>
         </div>
+
+        <section class="day-history" aria-label="Atividade realizada neste dia">
+          <h3>O que você fez</h3>
+          <div class="day-history-stats">
+            <span><strong>{{ activityFor(selectedDate).cardsAdded }}</strong> adicionados</span>
+            <span><strong>{{ activityFor(selectedDate).cardsStudied }}</strong> estudados</span>
+            <span><strong>{{ activityFor(selectedDate).reviews }}</strong> revisões</span>
+          </div>
+        </section>
+
+        <section class="day-note" aria-labelledby="day-note-heading">
+          <label for="day-note-content" id="day-note-heading">Anotações deste dia</label>
+          <textarea
+            id="day-note-content"
+            [ngModel]="dayNoteContent"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="onDayNoteInput($event)"
+            maxlength="30000"
+            placeholder="Registre o que estudou, dúvidas ou pontos para revisar..."
+          ></textarea>
+          <span class="note-save-status" role="status">{{ dayNoteStatus }}</span>
+        </section>
 
         @if (reviewsOn(selectedDate).length) {
           <article class="review-card">
@@ -645,11 +728,134 @@ function createLevelTwoSchedule(month: string, planName: string): StudyActivityI
           </form>
         }
       </section>
+      } @else {
+        <section class="notes-workspace" aria-label="Notas livres">
+          <aside class="notes-sidebar">
+            <div class="notes-list-heading">
+              <h2>Notas livres</h2>
+              <button
+                type="button"
+                class="primary-button"
+                (click)="createFreeNote()"
+                [disabled]="notesLoading || creatingNote"
+              >
+                ＋ Nova nota
+              </button>
+            </div>
+            <label class="note-search">
+              <span class="visually-hidden">Buscar notas</span>
+              <input
+                type="search"
+                [(ngModel)]="noteSearch"
+                [ngModelOptions]="{ standalone: true }"
+                placeholder="Buscar notas..."
+              />
+            </label>
+            @if (notesError) {
+              <p class="form-error" role="alert">{{ notesError }}</p>
+            } @else if (notesLoading) {
+              <p class="loading" role="status">Carregando notas...</p>
+            } @else if (!filteredNotes.length) {
+              <p class="notes-empty">
+                {{ noteSearch ? 'Nenhuma nota encontrada.' : 'Suas notas aparecerão aqui.' }}
+              </p>
+            } @else {
+              <div class="notes-list">
+                @for (note of filteredNotes; track note.id) {
+                  <button
+                    type="button"
+                    class="note-list-item"
+                    [class.selected]="selectedNote?.id === note.id"
+                    [attr.aria-pressed]="selectedNote?.id === note.id"
+                    (click)="selectNote(note)"
+                  >
+                    <strong>{{ note.title || 'Sem título' }}</strong>
+                    <span>{{ note.content || 'Nota vazia' }}</span>
+                    <small>{{ formatNoteDate(note.updated_at) }}</small>
+                  </button>
+                }
+              </div>
+            }
+          </aside>
+
+          <section class="note-editor" aria-label="Editor de nota">
+            @if (selectedNote) {
+              <label>
+                <span class="visually-hidden">Título da nota</span>
+                <input
+                  class="note-title-input"
+                  type="text"
+                  [(ngModel)]="selectedNote.title"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="scheduleNoteSave()"
+                  maxlength="120"
+                  placeholder="Título da nota"
+                />
+              </label>
+              <label>
+                <span class="visually-hidden">Conteúdo da nota</span>
+                <textarea
+                  class="free-note-content"
+                  [(ngModel)]="selectedNote.content"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="scheduleNoteSave()"
+                  maxlength="30000"
+                  placeholder="Escreva suas anotações em texto simples..."
+                ></textarea>
+              </label>
+              <div class="note-editor-footer">
+                <span class="note-save-status" role="status">{{ freeNoteStatus }}</span>
+                <button
+                  type="button"
+                  class="text-button delete-button"
+                  (click)="deleteFreeNote(selectedNote)"
+                  [disabled]="deletingNote"
+                >
+                  Excluir nota
+                </button>
+              </div>
+              <div class="note-ai-actions">
+                <button
+                  type="button"
+                  class="secondary-button"
+                  (click)="createCardsFromNote(selectedNote)"
+                  [disabled]="!selectedNote.content.trim()"
+                >
+                  Criar cartões com IA
+                </button>
+                <button
+                  type="button"
+                  class="secondary-button"
+                  (click)="explainNote(selectedNote)"
+                  [disabled]="!selectedNote.content.trim() || explainingNote"
+                >
+                  {{ explainingNote ? 'Explicando...' : 'Explicar com IA' }}
+                </button>
+              </div>
+              @if (noteExplanation) {
+                <article class="note-explanation">
+                  <h3>Explicação</h3>
+                  <p>{{ noteExplanation }}</p>
+                </article>
+              }
+              @if (noteAiError) {
+                <p class="form-error" role="alert">{{ noteAiError }}</p>
+              }
+            } @else {
+              <div class="empty-state">
+                <span aria-hidden="true">✎</span>
+                <strong>Suas notas de estudo</strong>
+                <p>Crie uma nota para registrar regras, dúvidas ou vocabulário novo.</p>
+              </div>
+            }
+          </section>
+        </section>
+      }
 
     </main>
   `,
 })
-export class StudyPlanComponent implements OnInit {
+export class StudyPlanComponent implements OnInit, OnDestroy {
   readonly weekdayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   readonly activityTypes: Array<{ value: StudyActivityType; label: string }> = [
     { value: 'study_lesson', label: 'Estudar unidade ou lição' },
@@ -660,10 +866,12 @@ export class StudyPlanComponent implements OnInit {
   ];
 
   view: CalendarView = 'week';
+  activeTab: 'calendar' | 'notes' = 'calendar';
   displayedDate = this.startOfDay(new Date());
   selectedDate = this.formatDate(new Date());
   activities: StudyActivity[] = [];
   scheduledReviews: ScheduledReview[] = [];
+  dailyActivity: DailyActivity[] = [];
   loading = true;
   saving = false;
   errorMessage = '';
@@ -677,8 +885,26 @@ export class StudyPlanComponent implements OnInit {
   planName = 'A1 — Level 2';
   planMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   planMessage = '';
+  dropTargetDate = '';
+  private draggedActivity: StudyActivity | null = null;
   generatingPlan = false;
   deletingPlan = false;
+  dayNoteContent = '';
+  dayNoteStatus = '';
+  notes: StudyNote[] = [];
+  selectedNote: StudyNote | null = null;
+  noteSearch = '';
+  notesLoading = false;
+  notesError = '';
+  creatingNote = false;
+  deletingNote = false;
+  freeNoteStatus = '';
+  noteAiError = '';
+  noteExplanation = '';
+  explainingNote = false;
+  private dayNoteTimer: ReturnType<typeof setTimeout> | null = null;
+  private freeNoteTimer: ReturnType<typeof setTimeout> | null = null;
+  private freeNoteSaveVersion = 0;
   readonly activityStatuses: Array<{ value: StudyActivityStatus; label: string }> = [
     { value: 'planned', label: 'Planejada' },
     { value: 'completed', label: 'Concluída' },
@@ -688,6 +914,8 @@ export class StudyPlanComponent implements OnInit {
   ];
   constructor(
     private readonly service: StudyPlanService,
+    private readonly cardService: CardService,
+    private readonly flashcardGeneration: FlashcardGenerationService,
     private readonly router: Router,
     private readonly changeDetector: ChangeDetectorRef,
   ) {}
@@ -696,21 +924,42 @@ export class StudyPlanComponent implements OnInit {
     void this.loadCalendar();
   }
 
+  ngOnDestroy() {
+    if (this.dayNoteTimer) {
+      this.flushDayNote();
+    }
+    if (this.freeNoteTimer && this.selectedNote) {
+      clearTimeout(this.freeNoteTimer);
+      void this.service.updateNote(
+        this.selectedNote.id,
+        this.selectedNote.title,
+        this.selectedNote.content,
+      ).catch((error: unknown) => {
+        this.freeNoteStatus =
+          error instanceof Error ? error.message : 'Não foi possível salvar a nota.';
+      });
+    }
+  }
+
   async loadCalendar() {
     this.loading = true;
     this.errorMessage = '';
     this.updateCalendarDays();
+    void this.loadDayNote(this.selectedDate);
 
     try {
       const { start, endExclusive } = this.visibleRange();
       const startDate = this.formatDate(start);
       const endDate = this.formatDate(new Date(endExclusive.getTime() - 86400000));
-      const [activities, reviews] = await Promise.all([
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      const [activities, reviews, dailyActivity] = await Promise.all([
         this.service.listActivities(startDate, endDate),
         this.service.listScheduledReviews(start, endExclusive),
+        this.cardService.getActivityCalendar(startDate, endDate, timeZone),
       ]);
       this.activities = activities;
       this.scheduledReviews = reviews;
+      this.dailyActivity = dailyActivity;
     } catch (error) {
       this.errorMessage =
         error instanceof Error ? error.message : 'Não foi possível carregar seu plano de estudos.';
@@ -725,7 +974,15 @@ export class StudyPlanComponent implements OnInit {
     void this.loadCalendar();
   }
 
+  setTab(tab: 'calendar' | 'notes') {
+    this.activeTab = tab;
+    if (tab === 'notes' && !this.notes.length) {
+      void this.loadNotes();
+    }
+  }
+
   movePeriod(offset: -1 | 1) {
+    this.flushDayNote();
     if (this.view === 'month') {
       this.displayedDate = new Date(
         this.displayedDate.getFullYear(),
@@ -743,17 +1000,322 @@ export class StudyPlanComponent implements OnInit {
   }
 
   goToToday() {
+    this.flushDayNote();
     this.displayedDate = this.startOfDay(new Date());
     this.selectedDate = this.formatDate(this.displayedDate);
     this.closeForm();
     void this.loadCalendar();
   }
 
+  startActivityDrag(event: DragEvent, activity: StudyActivity) {
+    if (activity.status !== 'planned' && activity.status !== 'unrecorded') {
+      event.preventDefault();
+      return;
+    }
+    this.draggedActivity = activity;
+    event.dataTransfer?.setData('text/plain', activity.id);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  allowActivityDrop(event: DragEvent, date: string) {
+    if (!this.draggedActivity || this.draggedActivity.starts_on === date) {
+      return;
+    }
+    event.preventDefault();
+    this.dropTargetDate = date;
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  clearDropTarget(date: string) {
+    if (this.dropTargetDate === date) {
+      this.dropTargetDate = '';
+    }
+  }
+
+  async dropActivity(event: DragEvent, date: string) {
+    event.preventDefault();
+    const activity = this.draggedActivity;
+    this.draggedActivity = null;
+    this.dropTargetDate = '';
+    if (!activity || activity.starts_on === date) {
+      return;
+    }
+
+    this.saving = true;
+    this.errorMessage = '';
+    try {
+      await this.service.saveActivity({ ...activity, starts_on: date }, activity.id);
+      this.flushDayNote();
+      this.selectedDate = date;
+      this.displayedDate = this.startOfDay(new Date(`${date}T00:00:00`));
+      await this.loadCalendar();
+    } catch (error) {
+      this.errorMessage =
+        error instanceof Error ? error.message : 'Não foi possível mover a atividade.';
+    } finally {
+      this.saving = false;
+      this.changeDetector.markForCheck();
+    }
+  }
+
   selectDate(date: string) {
+    this.flushDayNote();
     this.selectedDate = date;
     this.displayedDate = this.parseDate(date);
     this.closeForm();
     this.updateCalendarDays();
+    void this.loadDayNote(date);
+  }
+
+  activityFor(date: string): DailyActivity {
+    return (
+      this.dailyActivity.find((activity) => activity.date === date) ?? {
+        date,
+        cardsAdded: 0,
+        cardsStudied: 0,
+        reviews: 0,
+      }
+    );
+  }
+
+  activityLevel(date: string) {
+    const activity = this.activityFor(date);
+    const total = activity.cardsAdded + activity.cardsStudied + activity.reviews;
+    return total === 0 ? 0 : total === 1 ? 1 : total <= 3 ? 2 : total <= 6 ? 3 : 4;
+  }
+
+  onDayNoteInput(content: string) {
+    this.dayNoteContent = content;
+    this.dayNoteStatus = 'Salvando...';
+    const date = this.selectedDate;
+    if (this.dayNoteTimer) {
+      clearTimeout(this.dayNoteTimer);
+    }
+    this.dayNoteTimer = setTimeout(() => {
+      this.dayNoteTimer = null;
+      void this.service
+        .saveDayNote(date, content)
+        .then(() => {
+          if (this.selectedDate === date) {
+            this.dayNoteStatus = 'Salvo';
+          }
+        })
+        .catch((error: unknown) => {
+          if (this.selectedDate === date) {
+            this.dayNoteStatus =
+              error instanceof Error ? error.message : 'Não foi possível salvar a anotação.';
+          }
+        })
+        .finally(() => this.changeDetector.markForCheck());
+    }, 650);
+  }
+
+  private flushDayNote() {
+    if (!this.dayNoteTimer) {
+      return;
+    }
+    clearTimeout(this.dayNoteTimer);
+    this.dayNoteTimer = null;
+    const date = this.selectedDate;
+    const content = this.dayNoteContent;
+    void this.service
+      .saveDayNote(date, content)
+      .then(() => {
+        if (this.selectedDate === date) {
+          this.dayNoteStatus = 'Salvo';
+        }
+      })
+      .catch((error: unknown) => {
+        if (this.selectedDate === date) {
+          this.dayNoteStatus =
+            error instanceof Error ? error.message : 'Não foi possível salvar a anotação.';
+        }
+      })
+      .finally(() => this.changeDetector.markForCheck());
+  }
+
+  async loadDayNote(date: string) {
+    this.dayNoteStatus = 'Carregando...';
+    try {
+      const content = await this.service.getDayNote(date);
+      if (this.selectedDate === date && !this.dayNoteTimer) {
+        this.dayNoteContent = content;
+        this.dayNoteStatus = '';
+      }
+    } catch (error) {
+      if (this.selectedDate === date) {
+        this.dayNoteStatus =
+          error instanceof Error ? error.message : 'Não foi possível carregar a anotação.';
+      }
+    } finally {
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  get filteredNotes() {
+    const query = this.noteSearch.trim().toLocaleLowerCase();
+    if (!query) {
+      return this.notes;
+    }
+    return this.notes.filter(
+      (note) =>
+        note.title.toLocaleLowerCase().includes(query) ||
+        note.content.toLocaleLowerCase().includes(query),
+    );
+  }
+
+  async loadNotes() {
+    this.notesLoading = true;
+    this.notesError = '';
+    try {
+      this.notes = await this.service.listNotes();
+      if (this.selectedNote) {
+        this.selectedNote =
+          this.notes.find((note) => note.id === this.selectedNote?.id) ?? null;
+      }
+      if (!this.selectedNote && this.notes.length) {
+        this.selectedNote = this.notes[0];
+      }
+    } catch (error) {
+      this.notesError =
+        error instanceof Error ? error.message : 'Não foi possível carregar suas notas.';
+    } finally {
+      this.notesLoading = false;
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  selectNote(note: StudyNote) {
+    const previous = this.selectedNote;
+    if (previous && previous.id !== note.id && this.freeNoteTimer) {
+      clearTimeout(this.freeNoteTimer);
+      this.freeNoteTimer = null;
+      void this.service
+        .updateNote(previous.id, previous.title, previous.content)
+        .catch((error: unknown) => {
+          this.notesError = error instanceof Error ? error.message : 'Não foi possível salvar a nota.';
+          this.changeDetector.markForCheck();
+        });
+    }
+    this.selectedNote = note;
+    this.noteExplanation = '';
+    this.noteAiError = '';
+    this.freeNoteStatus = '';
+  }
+
+  async createFreeNote() {
+    if (this.creatingNote) {
+      return;
+    }
+    this.creatingNote = true;
+    this.notesError = '';
+    try {
+      const note = await this.service.createNote('Nova nota');
+      this.notes = [note, ...this.notes];
+      this.selectedNote = note;
+      this.noteSearch = '';
+      this.noteExplanation = '';
+    } catch (error) {
+      this.notesError = error instanceof Error ? error.message : 'Não foi possível criar a nota.';
+    } finally {
+      this.creatingNote = false;
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  scheduleNoteSave() {
+    const note = this.selectedNote;
+    if (!note) {
+      return;
+    }
+    this.freeNoteStatus = 'Salvando...';
+    if (this.freeNoteTimer) {
+      clearTimeout(this.freeNoteTimer);
+    }
+    const version = ++this.freeNoteSaveVersion;
+    this.freeNoteTimer = setTimeout(() => {
+      this.freeNoteTimer = null;
+      void this.service
+        .updateNote(note.id, note.title, note.content)
+        .then(() => {
+          note.updated_at = new Date().toISOString();
+          this.notes = [...this.notes].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+          if (version === this.freeNoteSaveVersion && this.selectedNote?.id === note.id) {
+            this.freeNoteStatus = 'Salvo';
+          }
+        })
+        .catch((error: unknown) => {
+          if (version === this.freeNoteSaveVersion && this.selectedNote?.id === note.id) {
+            this.freeNoteStatus =
+              error instanceof Error ? error.message : 'Não foi possível salvar a nota.';
+          }
+        })
+        .finally(() => this.changeDetector.markForCheck());
+    }, 650);
+  }
+
+  async deleteFreeNote(note: StudyNote) {
+    if (!window.confirm(`Excluir a nota “${note.title || 'Sem título'}”?`)) {
+      return;
+    }
+    if (this.freeNoteTimer) {
+      clearTimeout(this.freeNoteTimer);
+      this.freeNoteTimer = null;
+    }
+    this.deletingNote = true;
+    this.notesError = '';
+    try {
+      await this.service.deleteNote(note.id);
+      this.notes = this.notes.filter((item) => item.id !== note.id);
+      this.selectedNote = this.notes[0] ?? null;
+      this.noteExplanation = '';
+      this.freeNoteStatus = '';
+    } catch (error) {
+      this.notesError =
+        error instanceof Error ? error.message : 'Não foi possível excluir a nota.';
+    } finally {
+      this.deletingNote = false;
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  createCardsFromNote(note: StudyNote) {
+    if (note.content.trim().length > 5000) {
+      this.noteAiError = 'A IA aceita até 5.000 caracteres. Reduza o texto da nota antes de continuar.';
+      return;
+    }
+    try {
+      window.sessionStorage.setItem('flashcards-ai-note-draft', note.content);
+    } catch {
+      this.noteAiError = 'Não foi possível preparar a nota para a geração com IA neste navegador.';
+      return;
+    }
+    void this.router.navigate(['/generate-cards'], {
+      queryParams: { source: `Nota: ${note.title}`.slice(0, 160) },
+    });
+  }
+
+  async explainNote(note: StudyNote) {
+    if (note.content.trim().length > 5000) {
+      this.noteAiError = 'A IA aceita até 5.000 caracteres. Reduza o texto da nota antes de continuar.';
+      return;
+    }
+    this.explainingNote = true;
+    this.noteAiError = '';
+    this.noteExplanation = '';
+    try {
+      this.noteExplanation = await this.flashcardGeneration.explain(note.content);
+    } catch (error) {
+      this.noteAiError =
+        error instanceof Error ? error.message : 'Não foi possível explicar este conteúdo.';
+    } finally {
+      this.explainingNote = false;
+      this.changeDetector.markForCheck();
+    }
   }
 
   openNewActivity() {
@@ -828,6 +1390,7 @@ export class StudyPlanComponent implements OnInit {
     this.formError = '';
     try {
       await this.service.saveActivity(input, this.editingId || undefined);
+      this.flushDayNote();
       this.selectedDate = input.starts_on;
       this.displayedDate = this.parseDate(input.starts_on);
       this.closeForm();
@@ -905,6 +1468,7 @@ export class StudyPlanComponent implements OnInit {
         return;
       }
 
+      this.flushDayNote();
       this.selectedDate = startDate;
       this.displayedDate = this.parseDate(startDate);
       this.view = 'month';
@@ -1024,6 +1588,15 @@ export class StudyPlanComponent implements OnInit {
       month: 'long',
       year: 'numeric',
     }).format(this.parseDate(date));
+  }
+
+  formatNoteDate(date: string) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(date));
   }
 
   weekdayLong(date: string) {

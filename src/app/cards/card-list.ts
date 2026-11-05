@@ -55,6 +55,17 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
             <option value="scheduled">Agendado</option>
             <option value="learned">Aprendido</option>
           </select>
+          <select [(ngModel)]="learningFilter" (ngModelChange)="applyFilters()" aria-label="Progresso">
+            <option value="">Todos os níveis de aprendizado</option>
+            <option value="new">Novo</option>
+            <option value="learning">Aprendendo</option>
+            <option value="mastered">Dominado</option>
+          </select>
+          <select [(ngModel)]="sortOrder" (ngModelChange)="applyFilters()" aria-label="Ordenar coleção">
+            <option value="due">Ordenar por próxima revisão</option>
+            <option value="newest">Mais recentes</option>
+            <option value="alphabetical">Ordem alfabética</option>
+          </select>
           <select [(ngModel)]="voiceLocale" aria-label="Voz em inglês">
             <option value="en-US">Voz EUA</option>
             <option value="en-GB">Voz Reino Unido</option>
@@ -157,7 +168,12 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
                       }
                     </div>
                     <div class="item-meta">
-                      <span>{{ categoryLabel(card.category) }}</span>
+                      <span [class]="categoryClass(card.category)">
+                        {{ categoryLabel(card.category) }}
+                      </span>
+                      <span [class]="'learning-state ' + learningState(card)">
+                        {{ learningStateLabel(card) }}
+                      </span>
                       @if (card.source) {
                         <span>Origem: {{ card.source }}</span>
                       }
@@ -170,57 +186,51 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
                       <span>Próxima revisão: {{ card.next_review_at | date: 'dd/MM/yyyy' }}</span>
                     </div>
                   </div>
-                  <div class="item-actions desktop-actions">
+                  <div class="item-actions">
                     <button
                       type="button"
                       class="secondary"
                       (click)="speakEnglish(card.english_text)"
                       [disabled]="!speech.isSupported"
                       aria-label="Ouvir frase em inglês"
+                      title="Ouvir frase em inglês"
                     >
-                      🔊 Ouvir inglês
+                      🔊
                     </button>
-                    <button type="button" class="secondary" (click)="startEdit(card)">
-                      Editar
+                    <button type="button" class="secondary" (click)="startEdit(card)" aria-label="Editar cartão" title="Editar cartão">
+                      ✎
                     </button>
-                    <button type="button" class="danger" (click)="deleteCard(card.id)">
-                      Excluir
+                    <button type="button" class="danger" (click)="deleteCard(card.id)" aria-label="Excluir cartão" title="Excluir cartão">
+                      🗑
                     </button>
+                    @defer (on interaction) {
+                      <app-pronunciation-practice
+                        [referenceText]="card.english_text"
+                        [assessmentEnabled]="pronunciationAssessmentEnabled"
+                        [initiallyOpen]="true"
+                      />
+                    } @placeholder {
+                      <button type="button" class="secondary practice-trigger" aria-label="Praticar pronúncia" title="Praticar pronúncia">
+                        🎙
+                      </button>
+                    }
                   </div>
-                  <details class="mobile-action-menu">
-                    <summary>Ações do cartão</summary>
-                    <div class="mobile-action-list">
-                      <button
-                        type="button"
-                        class="secondary"
-                        (click)="speakEnglish(card.english_text)"
-                        [disabled]="!speech.isSupported"
-                      >
-                        Ouvir inglês
-                      </button>
-                      <button type="button" class="secondary" (click)="startEdit(card)">
-                        Editar
-                      </button>
-                      <button type="button" class="danger" (click)="deleteCard(card.id)">
-                        Excluir
-                      </button>
-                    </div>
-                  </details>
-                  @defer (on interaction) {
-                    <app-pronunciation-practice
-                      [referenceText]="card.english_text"
-                      [assessmentEnabled]="pronunciationAssessmentEnabled"
-                      [initiallyOpen]="true"
-                    />
-                  } @placeholder {
-                    <button type="button" class="secondary practice-trigger">
-                      Praticar pronúncia
-                    </button>
-                  }
                 }
               </article>
             }
           </div>
+          <nav class="pagination" aria-label="Paginação da coleção">
+            <span>{{ filteredCount }} {{ filteredCount === 1 ? 'cartão encontrado' : 'cartões encontrados' }}</span>
+            <div>
+              <button type="button" class="secondary" (click)="changePage(-1)" [disabled]="currentPage === 1">
+                Anterior
+              </button>
+              <span>Página {{ currentPage }} de {{ totalPages }}</span>
+              <button type="button" class="secondary" (click)="changePage(1)" [disabled]="currentPage === totalPages">
+                Próxima
+              </button>
+            </div>
+          </nav>
         }
       </section>
     </main>
@@ -365,19 +375,20 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
     }
 
     .item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
       min-width: 0;
       overflow-wrap: anywhere;
       border: 1px solid rgba(96, 165, 250, 0.22);
       border-radius: 14px;
-      padding: 1rem;
+      padding: 0.75rem 1rem;
       background: rgba(15, 23, 42, 0.7);
     }
 
     .item-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-      align-items: flex-start;
+      display: block;
+      min-width: 0;
     }
 
     .phrase {
@@ -407,16 +418,62 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
 
     .item-meta {
       display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      font-size: 0.85rem;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      font-size: 0.78rem;
       color: #cbd5e1;
-      text-align: right;
+      text-align: left;
+    }
+
+    .category-badge {
+      padding: 0.22rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.15);
+      color: #e2e8f0;
+      font-weight: 750;
+    }
+
+    .learning-state {
+      padding: 0.22rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(96, 165, 250, 0.13);
+      color: #bfdbfe;
+      font-weight: 700;
+    }
+
+    .learning-state.new {
+      background: rgba(148, 163, 184, 0.15);
+      color: #e2e8f0;
+    }
+
+    .learning-state.mastered {
+      background: rgba(52, 211, 153, 0.14);
+      color: #a7f3d0;
+    }
+
+    .category-vocabulary {
+      background: rgba(167, 139, 250, 0.16);
+      color: #ddd6fe;
+    }
+
+    .category-sentence {
+      background: rgba(56, 189, 248, 0.14);
+      color: #bae6fd;
+    }
+
+    .category-cloze {
+      background: rgba(251, 191, 36, 0.15);
+      color: #fde68a;
+    }
+
+    .category-travel {
+      background: rgba(52, 211, 153, 0.14);
+      color: #a7f3d0;
     }
 
     .review-state {
       width: fit-content;
-      align-self: flex-end;
       padding: 0.2rem 0.5rem;
       border-radius: 999px;
       background: rgba(56, 189, 248, 0.12);
@@ -437,10 +494,52 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
     .item-actions,
     .editor-actions {
       display: flex;
-      justify-content: flex-end;
-      gap: 0.7rem;
-      margin-top: 0.9rem;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.45rem;
+      margin-top: 0.5rem;
       flex-wrap: wrap;
+    }
+
+    .item-actions {
+      grid-column: 2;
+      grid-row: 1;
+      margin: 0 0 0 0.75rem;
+    }
+
+    .editor {
+      grid-column: 1 / -1;
+    }
+
+    .item-actions button {
+      min-width: 42px;
+      min-height: 42px;
+      padding: 0.55rem;
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 1.25rem;
+      color: #cbd5e1;
+      font-size: 0.9rem;
+    }
+
+    .pagination > div {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .pagination button {
+      padding: 0.55rem 0.75rem;
+    }
+
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .editor {
@@ -456,10 +555,6 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
       margin: 0;
       color: #94a3b8;
       font-size: 0.82rem;
-    }
-
-    .mobile-action-menu {
-      display: none;
     }
 
     .status {
@@ -480,6 +575,16 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
         grid-column: auto;
       }
 
+      .pagination {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .pagination > div {
+        width: 100%;
+        justify-content: space-between;
+      }
+
       .collection-shell {
         padding: 1rem 0.75rem;
       }
@@ -488,43 +593,14 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
         padding: 1.1rem;
       }
 
-      .item-head {
-        flex-direction: column;
-      }
-
       .item-meta {
         text-align: left;
         align-items: flex-start;
       }
 
-      .review-state {
-        align-self: flex-start;
-      }
-
-      .desktop-actions {
-        display: none;
-      }
-
-      .mobile-action-menu {
-        display: block;
-        margin-top: 0.7rem;
-      }
-
-      .mobile-action-menu summary {
-        width: fit-content;
-        min-height: 44px;
-        padding: 0.7rem 0.85rem;
-        border: 1px solid rgba(96, 165, 250, 0.25);
-        border-radius: 10px;
-        color: #dbeafe;
-        cursor: pointer;
-      }
-
-      .mobile-action-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        padding-top: 0.55rem;
+      .item-actions {
+        justify-content: flex-start;
+        margin-left: 0.5rem;
       }
     }
   `,
@@ -539,6 +615,11 @@ export class CardListComponent implements OnInit {
   sourceFilter = '';
   levelFilter = '';
   reviewFilter = '';
+  learningFilter = '';
+  sortOrder: 'due' | 'newest' | 'alphabetical' = 'due';
+  currentPage = 1;
+  readonly pageSize = 20;
+  filteredCount = 0;
   editingId: string | null = null;
   draftEnglish = '';
   draftPortuguese = '';
@@ -586,7 +667,11 @@ export class CardListComponent implements OnInit {
     try {
       this.allCards = await this.cardService.listCards();
       this.categories = [
-        ...new Set(this.allCards.map((card) => card.category).filter(Boolean)),
+        ...new Set(
+          this.allCards
+            .map((card) => card.category?.trim().toLocaleLowerCase())
+            .filter(Boolean),
+        ),
       ] as string[];
       this.sources = [
         ...new Set(this.allCards.map((card) => card.source).filter(Boolean)),
@@ -602,18 +687,99 @@ export class CardListComponent implements OnInit {
   }
 
   applyFilters() {
+    this.currentPage = 1;
     const search = this.searchTerm.trim().toLocaleLowerCase();
-    this.cards = this.allCards.filter((card) => {
+    const filtered = this.allCards.filter((card) => {
       const matchesSearch =
         !search ||
         [card.english_text, card.portuguese_text, card.source ?? '']
           .some((value) => value.toLocaleLowerCase().includes(search));
-      const matchesCategory = !this.categoryFilter || card.category === this.categoryFilter;
+      const matchesCategory =
+        !this.categoryFilter ||
+        card.category?.trim().toLocaleLowerCase() === this.categoryFilter;
       const matchesSource = !this.sourceFilter || card.source === this.sourceFilter;
       const matchesLevel = !this.levelFilter || card.level === this.levelFilter;
       const matchesReview = !this.reviewFilter || this.reviewState(card) === this.reviewFilter;
-      return matchesSearch && matchesCategory && matchesSource && matchesLevel && matchesReview;
+      const matchesLearning =
+        !this.learningFilter || this.learningState(card) === this.learningFilter;
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesSource &&
+        matchesLevel &&
+        matchesReview &&
+        matchesLearning
+      );
     });
+    this.filteredCount = filtered.length;
+    this.sortCards(filtered);
+    this.cards = filtered.slice(0, this.pageSize);
+  }
+
+  changePage(offset: -1 | 1) {
+    const nextPage = this.currentPage + offset;
+    if (nextPage < 1 || nextPage > this.totalPages) {
+      return;
+    }
+    this.currentPage = nextPage;
+    const filtered = this.getFilteredCards();
+    this.sortCards(filtered);
+    const start = (this.currentPage - 1) * this.pageSize;
+    this.cards = filtered.slice(start, start + this.pageSize);
+  }
+
+  get totalPages() {
+    return Math.max(1, Math.ceil(this.filteredCount / this.pageSize));
+  }
+
+  private getFilteredCards() {
+    const search = this.searchTerm.trim().toLocaleLowerCase();
+    return this.allCards.filter((card) => {
+      const matchesSearch =
+        !search ||
+        [card.english_text, card.portuguese_text, card.source ?? '']
+          .some((value) => value.toLocaleLowerCase().includes(search));
+      return (
+        matchesSearch &&
+        (!this.categoryFilter ||
+          card.category?.trim().toLocaleLowerCase() === this.categoryFilter) &&
+        (!this.sourceFilter || card.source === this.sourceFilter) &&
+        (!this.levelFilter || card.level === this.levelFilter) &&
+        (!this.reviewFilter || this.reviewState(card) === this.reviewFilter) &&
+        (!this.learningFilter || this.learningState(card) === this.learningFilter)
+      );
+    });
+  }
+
+  private sortCards(cards: FlashcardRecord[]) {
+    if (this.sortOrder === 'newest') {
+      cards.sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
+    } else if (this.sortOrder === 'alphabetical') {
+      cards.sort((a, b) => a.english_text.localeCompare(b.english_text, 'en'));
+    } else {
+      cards.sort(
+        (a, b) =>
+          new Date(a.next_review_at).getTime() - new Date(b.next_review_at).getTime(),
+      );
+    }
+  }
+
+  learningState(card: FlashcardRecord): 'new' | 'learning' | 'mastered' {
+    const reviews = card.review_count ?? 0;
+    return reviews === 0 ? 'new' : reviews >= 5 ? 'mastered' : 'learning';
+  }
+
+  learningStateLabel(card: FlashcardRecord) {
+    const labels = { new: 'Novo', learning: 'Aprendendo', mastered: 'Dominado' };
+    return labels[this.learningState(card)];
+  }
+
+  categoryClass(category: string | null | undefined) {
+    const value = category?.trim().toLocaleLowerCase();
+    if (value === 'vocabulary' || value === 'sentence' || value === 'cloze' || value === 'travel') {
+      return `category-badge category-${value}`;
+    }
+    return 'category-badge';
   }
 
   reviewState(card: FlashcardRecord): 'due' | 'scheduled' | 'learned' {
@@ -640,7 +806,7 @@ export class CardListComponent implements OnInit {
       work: 'Trabalho',
       food: 'Comida',
     };
-    return labels[category.toLocaleLowerCase()] ?? category;
+    return labels[category.toLocaleLowerCase()] ?? category.trim().toLocaleLowerCase();
   }
 
   levelLabel(level: string) {
