@@ -16,8 +16,13 @@ create table if not exists public.study_notes (
   updated_at timestamptz not null default now()
 );
 
+alter table public.study_notes
+  add column if not exists tags text[] not null default '{}';
+
 create index if not exists idx_study_notes_user_updated
   on public.study_notes (user_id, updated_at desc);
+create index if not exists idx_study_notes_tags
+  on public.study_notes using gin (tags);
 
 alter table public.study_day_notes enable row level security;
 alter table public.study_notes enable row level security;

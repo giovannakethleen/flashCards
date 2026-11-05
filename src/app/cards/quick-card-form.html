@@ -1,0 +1,173 @@
+
+    <main class="form-shell">
+      <section class="card">
+        <div class="header">
+          <h1>Adicionar frase</h1>
+        </div>
+
+        @if (errorMessage) {
+          <p class="message error">{{ errorMessage }}</p>
+        }
+
+        @if (successMessage) {
+          <p class="message success">{{ successMessage }}</p>
+        }
+
+        <label>
+          <span>Frase em inglês *</span>
+          <textarea
+            [(ngModel)]="englishText"
+            (ngModelChange)="checkForDuplicate()"
+            required
+            rows="4"
+            placeholder="She has been studying a lot."
+          ></textarea>
+        </label>
+        @if (duplicateMessage) {
+          <p class="translation-hint" role="status">{{ duplicateMessage }}</p>
+        }
+
+        <div class="capture-row">
+          <button type="button" class="soft" (click)="readClipboardText()">
+            Ler área de transferência
+          </button>
+          <button
+            type="button"
+            class="soft"
+            (click)="speakEnglishPreview()"
+            [disabled]="!speech.isSupported"
+            aria-label="Ouvir frase em inglês"
+          >
+            🔊 Ouvir frase
+          </button>
+        </div>
+
+        @if (speechMessage) {
+          <p class="message" role="status">{{ speechMessage }}</p>
+        }
+
+        <label>
+          <span>Tradução em português *</span>
+          <textarea
+            [(ngModel)]="portugueseText"
+            required
+            rows="4"
+            placeholder="Ela tem estudado bastante."
+          ></textarea>
+        </label>
+        <button
+          type="button"
+          class="soft translation-button"
+          (click)="translateToPortuguese()"
+          [disabled]="isTranslating || !translation.enabled"
+        >
+          {{ isTranslating ? 'Traduzindo...' : 'Traduzir' }}
+        </button>
+        @if (translationMessage) {
+          <p class="message" [class.error]="translationError" role="status">
+            {{ translationMessage }}
+          </p>
+        } @else if (!translation.enabled) {
+          <p class="translation-hint">
+            Tradução automática indisponível no momento. Você pode preencher o campo manualmente.
+          </p>
+        }
+
+        <details class="optional-details">
+          <summary>Detalhes opcionais</summary>
+          <div class="grid">
+            <label>
+              <span>Palavra ou expressão em foco</span>
+              <input [(ngModel)]="focusWord" type="text" placeholder="study" />
+            </label>
+            <label>
+              <span>Categoria ou tipo do cartão</span>
+              <input
+                [(ngModel)]="category"
+                type="text"
+                list="category-suggestions"
+                placeholder="Travel, vocabulary, sentence, cloze..."
+              />
+              <datalist id="category-suggestions">
+                <option value="travel"></option>
+                <option value="work"></option>
+                <option value="food"></option>
+                <option value="vocabulary"></option>
+                <option value="sentence"></option>
+                <option value="cloze"></option>
+              </datalist>
+            </label>
+          </div>
+          <div class="grid">
+            <label>
+              <span>Origem da frase</span>
+              <input [(ngModel)]="source" type="text" placeholder="Livro, podcast, aula..." />
+            </label>
+            <label>
+              <span>Nível de inglês</span>
+              <select [(ngModel)]="level">
+                <option value="">Não informado</option>
+                <option value="beginner">Iniciante</option>
+                <option value="intermediate">Intermediário</option>
+                <option value="advanced">Avançado</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid">
+            <label>
+              <span>Informações para áudio</span>
+              <input [(ngModel)]="audioInfo" type="text" placeholder="Pronúncia ou URL" />
+            </label>
+            <label>
+              <span>Voz de áudio</span>
+              <select [(ngModel)]="voiceLocale">
+                <option value="en-US">Inglês americano</option>
+                <option value="en-GB">Inglês britânico</option>
+              </select>
+            </label>
+          </div>
+        </details>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="primary"
+            (click)="saveCard(false)"
+            [disabled]="isSubmitting || isTranslating"
+          >
+            {{ isSubmitting ? 'Salvando...' : 'Salvar cartão' }}
+          </button>
+          <button
+            type="button"
+            class="secondary"
+            (click)="saveCard(true)"
+            [disabled]="isSubmitting || isTranslating"
+          >
+            Salvar e adicionar outra
+          </button>
+        </div>
+        <p class="translation-hint">Atalho: Ctrl+Enter salva o cartão.</p>
+
+        <details class="optional-details batch-details">
+          <summary>Cadastro em lote (até 10 frases)</summary>
+          <p class="translation-hint">
+            Cole uma frase por linha. Para informar a tradução manualmente, use o formato
+            <code>frase em inglês | tradução</code>. Linhas sem tradução usam a tradução com IA.
+          </p>
+          <textarea
+            [(ngModel)]="batchText"
+            rows="7"
+            placeholder="I’m looking forward to the trip.&#10;Could you help me, please?"
+            aria-label="Frases para cadastro em lote"
+          ></textarea>
+          <button
+            type="button"
+            class="secondary batch-button"
+            (click)="saveBatch()"
+            [disabled]="isSubmitting || !batchText.trim()"
+          >
+            {{ isSubmitting ? 'Salvando lote...' : 'Traduzir e salvar frases' }}
+          </button>
+        </details>
+      </section>
+    </main>

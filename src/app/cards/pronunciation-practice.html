@@ -1,0 +1,181 @@
+
+    <section class="practice" [class.compact]="compact">
+      <button type="button" class="secondary" (click)="togglePanel()">
+        {{ isOpen ? 'Fechar prática' : 'Praticar pronúncia' }}
+      </button>
+
+      @if (isOpen) {
+        <div class="practice-panel">
+          <label class="locale">
+            Variante do inglês
+            <select
+              [(ngModel)]="locale"
+              [disabled]="isRecording || isProcessing || isPreparing || isRecognizingSpeech"
+            >
+              <option value="en-US">Inglês americano (en-US)</option>
+              <option value="en-GB">Inglês britânico (en-GB)</option>
+            </select>
+          </label>
+
+          <p class="notice">
+            Grave e ouça sua fala neste navegador. O áudio só será enviado para avaliação depois da
+            sua confirmação. A avaliação é uma orientação para praticar, não uma nota definitiva nem
+            uma exigência de imitar um falante nativo.
+          </p>
+
+          <section class="speech-match" aria-label="Feedback rápido de pronúncia">
+            <h3>Feedback rápido de pronúncia</h3>
+            <p class="notice">
+              A nota compara a transcrição com a frase, não avalia fonemas. O reconhecimento pode
+              processar áudio conforme as configurações do navegador.
+            </p>
+            <button
+              type="button"
+              class="secondary"
+              (click)="toggleSpeechRecognition()"
+              [disabled]="!speech.isRecognitionSupported || isRecording || isPreparing || isProcessing"
+            >
+              {{ isRecognizingSpeech ? 'Parar prática' : 'Falar a frase' }}
+            </button>
+            @if (!speech.isRecognitionSupported) {
+              <p class="notice">O reconhecimento de fala não está disponível neste navegador.</p>
+            } @else if (isRecognizingSpeech) {
+              <p class="notice" role="status">Fale a frase em voz alta.</p>
+            }
+            @if (recognitionError) {
+              <p class="error" role="alert">{{ recognitionError }}</p>
+            }
+            @if (recognizedTranscript && speechMatch) {
+              <div class="speech-match-result" aria-live="polite">
+                <p><strong>Você disse:</strong> {{ recognizedTranscript }}</p>
+                <strong>Correspondência aproximada: {{ speechMatch.score }}%</strong>
+                <p>
+                  {{ speechMatch.matchedWords }} de {{ speechMatch.totalWords }} palavras
+                  correspondidas. {{ speechMatchFeedback }}
+                </p>
+              </div>
+            }
+          </section>
+
+          <div class="actions">
+            @if (!isRecording) {
+              <button
+                type="button"
+                class="primary"
+                (click)="startRecording()"
+                [disabled]="isProcessing || isPreparing || isFinalizingRecording || isRecognizingSpeech"
+              >
+                {{ isPreparing ? 'Solicitando microfone…' : 'Gravar (máx. ' + maxSeconds + ' s)' }}
+              </button>
+            } @else {
+              <button type="button" class="danger" (click)="stopRecording()">Parar gravação</button>
+              <span role="status">Gravando… {{ secondsLeft }} s restantes</span>
+            }
+          </div>
+
+          @if (audioUrl) {
+            <div class="recorded">
+              <p>
+                Gravação temporária — ela será descartada ao fechar esta prática ou sair da página.
+              </p>
+              <audio [src]="audioUrl" controls></audio>
+            </div>
+          }
+
+          @if (audioUrl && assessmentEnabled) {
+            <label class="consent">
+              <input type="checkbox" [(ngModel)]="consentGiven" [disabled]="isProcessing" />
+              <span>
+                Entendo que, ao enviar, esta gravação e a frase de referência serão processadas pelo
+                Azure Speech, na região configurada, para avaliar a pronúncia. O app não salva o
+                áudio nem os detalhes do resultado; a retenção no Azure depende das configurações de
+                logging. Consulte a
+                <a
+                  href="https://learn.microsoft.com/en-us/azure/ai-services/speech-service/logging-audio-transcription"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  documentação de retenção do Azure Speech
+                </a>
+                antes de consentir.
+              </span>
+            </label>
+            <button
+              type="button"
+              class="primary"
+              (click)="submitForAssessment()"
+              [disabled]="!consentGiven || isProcessing"
+            >
+              {{ isProcessing ? 'Avaliando…' : 'Enviar para avaliação' }}
+            </button>
+          } @else if (audioUrl) {
+            <p class="notice">
+              A avaliação automática está desativada. Você ainda pode ouvir sua gravação; nenhum
+              áudio será enviado.
+            </p>
+          }
+
+          @if (errorMessage) {
+            <p class="error" role="alert">{{ errorMessage }}</p>
+          }
+
+          @if (result) {
+            <div class="result" aria-live="polite">
+              <h3>Orientação para praticar</h3>
+              <p>Os indicadores são estimativas automáticas e podem variar entre tentativas.</p>
+              <ul>
+                @if (result.accuracy !== null) {
+                  <li>Precisão: {{ result.accuracy | number: '1.0-0' }}%</li>
+                }
+                @if (result.fluency !== null) {
+                  <li>Fluência: {{ result.fluency | number: '1.0-0' }}%</li>
+                }
+                @if (result.completeness !== null) {
+                  <li>Completude: {{ result.completeness | number: '1.0-0' }}%</li>
+                }
+                @if (result.pronunciation !== null) {
+                  <li>Pronúncia geral: {{ result.pronunciation | number: '1.0-0' }}%</li>
+                }
+              </ul>
+
+              @if (result.words.length) {
+                <h4>Palavras e sons para revisar</h4>
+                <ul class="word-list">
+                  @for (word of result.words; track $index) {
+                    <li>
+                      <strong>{{ word.word }}</strong>
+                      @if (word.accuracy !== null) {
+                        <span> — {{ word.accuracy | number: '1.0-0' }}%</span>
+                      }
+                      @if (word.errorType) {
+                        <span> ({{ describeError(word.errorType) }})</span>
+                      }
+                      @if (word.phonemes.length) {
+                        <ul>
+                          @for (phoneme of word.phonemes; track $index) {
+                            <li>
+                              /{{ phoneme.phoneme }}/
+                              @if (phoneme.accuracy !== null) {
+                                <span> — {{ phoneme.accuracy | number: '1.0-0' }}%</span>
+                              }
+                              @if (phoneme.errorType) {
+                                <span> ({{ describeError(phoneme.errorType) }})</span>
+                              }
+                            </li>
+                          }
+                        </ul>
+                      }
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p>
+                  Não houve apontamentos por palavra nesta tentativa. Continue praticando no seu
+                  ritmo.
+                </p>
+              }
+            </div>
+          }
+        </div>
+      }
+    </section>

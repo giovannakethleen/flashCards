@@ -1,0 +1,71 @@
+
+    <div class="workspace-shell">
+      <header class="topbar">
+        <a class="brand" routerLink="/dashboard" aria-label="FlashCards - início">
+          <img src="icons/icon-512x512.png" alt="" />
+          <span>FlashCards</span>
+        </a>
+        <button
+          type="button"
+          class="mobile-menu-toggle"
+          (click)="toggleMobileMenu()"
+          [attr.aria-expanded]="mobileMenuOpen"
+          aria-controls="primary-navigation"
+          [attr.aria-label]="mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'"
+        >
+          {{ mobileMenuOpen ? 'Fechar' : 'Menu' }}
+        </button>
+        <div class="topbar-center">
+          <span class="online-dot"></span>
+          <span>SEU ESPAÇO DE INGLÊS</span>
+        </div>
+        <div class="profile">
+          <span class="avatar" aria-hidden="true">{{ userInitial }}</span>
+          <span class="profile-email">{{ auth.currentUser()?.email }}</span>
+          <button type="button" class="logout-button" (click)="signOut()">Sair</button>
+        </div>
+      </header>
+
+      <aside class="sidebar" [class.open]="mobileMenuOpen">
+        <nav id="primary-navigation" class="navigation" aria-label="Menu principal">
+          <span class="nav-label">MENU</span>
+          <a
+            class="nav-link"
+            routerLink="/dashboard"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            (click)="closeMobileMenu()"
+          >
+            <span aria-hidden="true">⌂</span> Início
+          </a>
+          <a class="nav-link" routerLink="/review" routerLinkActive="active" (click)="closeMobileMenu()">
+            <span aria-hidden="true">◷</span> Estudar
+          </a>
+          <a class="nav-link" routerLink="/study-plan" routerLinkActive="active" (click)="closeMobileMenu()">
+            <span aria-hidden="true">▦</span> Meu plano
+          </a>
+          <a class="nav-link" routerLink="/generate-cards" routerLinkActive="active" (click)="closeMobileMenu()">
+            <span aria-hidden="true">✦</span> Criar com IA
+          </a>
+          <a
+            class="nav-link"
+            routerLink="/cards"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            (click)="closeMobileMenu()"
+          >
+            <span aria-hidden="true">▤</span> Minha coleção
+          </a>
+          <a class="nav-link" routerLink="/cards/new" routerLinkActive="active" (click)="closeMobileMenu()">
+            <span aria-hidden="true">＋</span> Adicionar frase
+          </a>
+        </nav>
+      </aside>
+
+      <div class="workspace-content">
+        @if (signOutError) {
+          <p class="sign-out-error" role="alert">{{ signOutError }}</p>
+        }
+        <router-outlet />
+      </div>
+    </div>

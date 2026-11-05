@@ -1,0 +1,154 @@
+
+    <main class="review-shell">
+      <section class="card">
+        @if (isLoading) {
+          <p class="loading">Carregando cartões...</p>
+        } @else if (errorMessage) {
+          <div class="empty-state">
+            <p class="speech-message" role="alert">{{ errorMessage }}</p>
+            <button type="button" class="primary" (click)="loadCards()">Tentar novamente</button>
+          </div>
+        } @else if (sessionComplete) {
+          <div class="empty-state session-summary">
+            <p class="eyebrow">Sessão concluída</p>
+            <h1>Mandou bem!</h1>
+            <p>Você revisou {{ reviewedCount }} {{ reviewedCount === 1 ? 'cartão' : 'cartões' }}.</p>
+            <div class="summary-stats">
+              <article><strong>{{ correctCount }}</strong><span>lembrados</span></article>
+              <article><strong>{{ elapsedLabel }}</strong><span>tempo de estudo</span></article>
+              <article>
+                <strong>{{ nextReviewLabel }}</strong><span>próxima revisão prevista</span>
+              </article>
+            </div>
+            <div class="empty-actions">
+              <button type="button" class="primary" (click)="startNewReview()">Revisar novamente</button>
+              <button type="button" class="secondary" (click)="goBack()">Voltar ao painel</button>
+            </div>
+          </div>
+        } @else if (!currentCard) {
+          <div class="empty-state">
+          <h1>{{ difficultOnly ? 'Nenhum cartão difícil por enquanto' : 'Você está em dia!' }}</h1>
+          <p>
+            {{ difficultOnly
+              ? 'Não há cartões com erros registrados para revisar.'
+              : 'Não há cartões pendentes para revisão neste momento.' }}
+          </p>
+            @if (feedbackMessage) {
+              <p class="review-feedback" role="status">{{ feedbackMessage }}</p>
+            }
+            <div class="empty-actions">
+              <button type="button" class="primary" (click)="startNewReview()">Nova revisão</button>
+              <button type="button" class="secondary" (click)="goBack()">Voltar ao painel</button>
+            </div>
+          </div>
+        } @else {
+          <div class="header">
+            <p class="eyebrow">Prática de hoje</p>
+            <span class="meta">
+              {{ currentCardNumber }} de {{ sessionTotal }} cartões · cerca de
+              {{ estimatedMinutes }} min
+            </span>
+          </div>
+          <div
+            class="progress-track"
+            role="progressbar"
+            [attr.aria-valuenow]="currentCardNumber"
+            [attr.aria-valuemin]="0"
+            [attr.aria-valuemax]="sessionTotal"
+            [attr.aria-label]="'Progresso da sessão: cartão ' + currentCardNumber + ' de ' + sessionTotal"
+          >
+            <span [style.width.%]="progressPercent"></span>
+          </div>
+
+          <button
+            type="button"
+            class="phrase-card"
+            [class.flipped]="showAnswer"
+            (click)="toggleAnswer()"
+            [attr.aria-expanded]="showAnswer"
+            aria-label="Toque para revelar ou esconder a tradução"
+          >
+            <span class="flip-inner">
+              <span class="flip-face front-face">
+                <span class="phrase">{{ currentCard.english_text }}</span>
+                <span class="tap-hint">Toque ou pressione Espaço para revelar</span>
+              </span>
+              <span class="flip-face back-face">
+                <span class="phrase">{{ currentCard.portuguese_text }}</span>
+                @if (currentCard.focus_word) {
+                  <span class="answer-detail"><strong>Foco:</strong> {{ currentCard.focus_word }}</span>
+                }
+                @if (currentCard.category) {
+                  <span class="answer-detail"><strong>Tema:</strong> {{ currentCard.category }}</span>
+                }
+                <span class="tap-hint">Toque ou pressione Espaço para voltar</span>
+              </span>
+            </span>
+          </button>
+
+          <div class="actions-row">
+            <label class="voice-choice">
+              <span>Voz</span>
+              <select [(ngModel)]="voiceLocale" aria-label="Voz em inglês">
+                <option value="en-US">EUA</option>
+                <option value="en-GB">Reino Unido</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              class="secondary"
+              (click)="speakEnglish()"
+              [disabled]="!speech.isSupported"
+              aria-label="Ouvir frase em inglês"
+            >
+              🔊 Ouvir frase
+            </button>
+            <app-pronunciation-practice
+              #pronunciation
+              [class.practice-open]="pronunciation.isOpen"
+              [compact]="true"
+              [referenceText]="currentCard.english_text"
+              [assessmentEnabled]="false"
+            />
+          </div>
+
+          @if (!speech.isSupported) {
+            <p class="speech-message" role="status">
+              A reprodução de voz não está disponível neste navegador.
+            </p>
+          } @else if (speechMessage) {
+            <p class="speech-message" role="status">{{ speechMessage }}</p>
+          }
+
+          @if (feedbackMessage) {
+            <p class="review-feedback" role="status">{{ feedbackMessage }}</p>
+          }
+
+          <p class="rating-hint">
+            Sua resposta define quando este cartão volta para revisão.
+          </p>
+          <div class="rating-row">
+            <button type="button" class="rating miss" (click)="rateCard('miss')" [disabled]="isSaving || !showAnswer">
+              <strong>Errei</strong><small>em 1 hora</small>
+            </button>
+            <button type="button" class="rating hard" (click)="rateCard('hard')" [disabled]="isSaving || !showAnswer">
+              <strong>Difícil</strong><small>· 1d</small>
+            </button>
+            <button type="button" class="rating remembered" (click)="rateCard('remembered')" [disabled]="isSaving || !showAnswer">
+              <strong>Lembrei</strong><small>· 3d</small>
+            </button>
+            <button
+              type="button"
+              class="rating easy"
+              (click)="rateCard('easy')"
+              [disabled]="isSaving || !showAnswer"
+            >
+              <strong>Fácil</strong><small>· 7d</small>
+            </button>
+          </div>
+          @if (errorMessage) {
+            <p class="review-feedback error" role="alert">{{ errorMessage }}</p>
+          }
+        }
+      </section>
+    </main>

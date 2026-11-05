@@ -1,0 +1,123 @@
+    :host {
+      display: block;
+    }
+    .practice.compact {
+      margin-top: 0;
+    }
+
+    .practice {
+      margin-top: 0.8rem;
+    }
+    .practice-panel {
+      display: grid;
+      gap: 0.75rem;
+      margin-top: 0.8rem;
+      padding: 1rem;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.55);
+    }
+    .locale {
+      display: grid;
+      gap: 0.4rem;
+      max-width: 360px;
+    }
+    select {
+      padding: 0.65rem;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e5e7eb;
+      border: 1px solid rgba(96, 165, 250, 0.3);
+      font: inherit;
+    }
+    .notice,
+    .recorded p,
+    .result p {
+      margin: 0;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 0.7rem 0.9rem;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .primary {
+      background: #60a5fa;
+      color: #0b1220;
+    }
+    .secondary {
+      background: rgba(96, 165, 250, 0.12);
+      color: #e5e7eb;
+      border: 1px solid rgba(96, 165, 250, 0.25);
+    }
+    .danger {
+      background: #991b1b;
+      color: #fff;
+    }
+    .recorded {
+      display: grid;
+      gap: 0.5rem;
+    }
+    audio {
+      width: min(100%, 420px);
+    }
+    .consent {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      color: #e5e7eb;
+      line-height: 1.5;
+    }
+    .consent input {
+      margin-top: 0.3rem;
+    }
+    .error {
+      margin: 0;
+      color: #fecaca;
+    }
+    .result {
+      border-top: 1px solid rgba(96, 165, 250, 0.25);
+      padding-top: 0.8rem;
+    }
+    .result h3,
+    .result h4 {
+      margin: 0.2rem 0 0.5rem;
+    }
+    .result ul {
+      padding-left: 1.3rem;
+      line-height: 1.6;
+    }
+    .speech-match {
+      display: grid;
+      gap: 0.55rem;
+      padding: 0.9rem;
+      border: 1px solid rgba(96, 165, 250, 0.2);
+      border-radius: 10px;
+      background: rgba(96, 165, 250, 0.05);
+    }
+    .speech-match h3,
+    .speech-match-result p {
+      margin: 0;
+    }
+    .speech-match-result {
+      display: grid;
+      gap: 0.35rem;
+      color: #d1fae5;
+      line-height: 1.5;
+    }
+    .word-list > li {
+      margin-bottom: 0.45rem;
+    }

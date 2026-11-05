@@ -281,23 +281,6 @@ app-dashboard {
     border-radius: 10px;
     font-size: 0.9rem;
   }
-
-  .home-study .daily-goal {
-    justify-self: start;
-    flex-wrap: wrap;
-    padding: 0.75rem 0.9rem;
-    border: 1px solid rgba(148, 163, 184, 0.14);
-    border-radius: 10px;
-    background: rgba(148, 163, 184, 0.05);
-  }
-
-  .home-study .goal-error {
-    position: static;
-    width: auto;
-    max-width: 240px;
-    margin: 0;
-  }
-
   .home-week {
     padding: 0.9rem 0;
     border-top: 1px solid rgba(148, 163, 184, 0.12);
@@ -861,72 +844,6 @@ app-dashboard {
   .next-action-copy .streak-reminder {
     color: #a7f3d0;
   }
-
-  .daily-goal {
-    position: relative;
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .goal-ring {
-    display: grid;
-    width: 68px;
-    aspect-ratio: 1;
-    place-items: center;
-    border-radius: 50%;
-  }
-
-  .goal-ring span {
-    display: grid;
-    width: 52px;
-    aspect-ratio: 1;
-    place-items: center;
-    border-radius: 50%;
-    background: #101a2b;
-    color: #d1fae5;
-    font-size: 0.78rem;
-    font-weight: 800;
-  }
-
-  .goal-setting {
-    display: grid;
-    gap: 0.35rem;
-    color: #cbd5e1;
-    font-size: 0.76rem;
-    font-weight: 700;
-  }
-
-  .goal-setting span {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    color: #94a3b8;
-    font-weight: 500;
-  }
-
-  .goal-setting input {
-    width: 58px;
-    min-height: 36px;
-    padding: 0.3rem 0.4rem;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: 7px;
-    background: rgba(15, 23, 42, 0.8);
-    color: #e2e8f0;
-    font: inherit;
-  }
-
-  .goal-error {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: max-content;
-    max-width: 220px;
-    color: #fecaca;
-    font-size: 0.72rem;
-  }
-
   .next-action-button {
     flex: 0 0 auto;
     min-height: 54px;
@@ -1670,15 +1587,6 @@ app-dashboard {
     .next-action-button {
       width: 100%;
     }
-
-    .daily-goal {
-      justify-content: flex-start;
-    }
-
-    .goal-error {
-      left: 80px;
-    }
-
     .weekly-progress-bars {
       gap: 0.2rem;
     }

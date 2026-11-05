@@ -1,0 +1,62 @@
+
+    <main class="auth-shell">
+      <section class="auth-card">
+        <div class="brand">
+          <img src="icons/icon-512x512.png" alt="Logo Loop" />
+          <span>FlashCards</span>
+        </div>
+        <h1>
+          @if (mode === 'login') {
+            Entrar
+          } @else if (mode === 'signup') {
+            Criar conta
+          } @else {
+            Recuperar senha
+          }
+        </h1>
+
+        @if (errorMessage) {
+          <p class="message error" role="alert" aria-live="assertive">{{ errorMessage }}</p>
+        }
+
+        @if (successMessage) {
+          <p class="message success">{{ successMessage }}</p>
+        }
+
+        <label>
+          <span>E-mail</span>
+          <input type="email" [(ngModel)]="email" placeholder="nome@email.com" />
+        </label>
+
+        @if (mode !== 'reset') {
+          <label>
+            <span>Senha</span>
+            <input type="password" [(ngModel)]="password" placeholder="Sua senha" />
+          </label>
+        }
+
+        <button type="button" class="primary" (click)="submit()" [disabled]="isSubmitting">
+          {{
+            mode === 'login'
+              ? 'Entrar'
+              : mode === 'signup'
+                ? 'Criar conta'
+                : 'Enviar link de recuperação'
+          }}
+        </button>
+
+        <div class="links">
+          @if (mode !== 'login') {
+            <button type="button" class="link" (click)="switchMode('login')">Já tenho conta</button>
+          }
+
+          @if (mode !== 'signup') {
+            <button type="button" class="link" (click)="switchMode('signup')">Criar nova conta</button>
+          }
+
+          @if (mode !== 'reset') {
+            <button type="button" class="link" (click)="switchMode('reset')">Esqueci a senha</button>
+          }
+        </div>
+      </section>
+    </main>

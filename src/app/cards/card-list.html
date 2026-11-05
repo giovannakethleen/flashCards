@@ -1,0 +1,247 @@
+
+    <main class="collection-shell">
+      <section class="panel">
+        <div class="header">
+          <h1>Coleção</h1>
+        </div>
+
+        <div class="toolbar">
+          <input
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="applyFilters()"
+            type="search"
+            placeholder="Buscar frase, tradução ou origem"
+            aria-label="Buscar na coleção"
+          />
+          <select [(ngModel)]="categoryFilter" (ngModelChange)="applyFilters()" aria-label="Tema">
+            <option value="">Todos os temas</option>
+            @for (category of categories; track category) {
+              <option [value]="category">{{ categoryLabel(category) }}</option>
+            }
+          </select>
+          <select [(ngModel)]="sourceFilter" (ngModelChange)="applyFilters()" aria-label="Origem">
+            <option value="">Todas as origens</option>
+            @for (source of sources; track source) {
+              <option [value]="source">{{ source }}</option>
+            }
+          </select>
+          <select [(ngModel)]="levelFilter" (ngModelChange)="applyFilters()" aria-label="Nível">
+            <option value="">Todos os níveis</option>
+            <option value="beginner">Iniciante</option>
+            <option value="intermediate">Intermediário</option>
+            <option value="advanced">Avançado</option>
+          </select>
+          <select
+            [(ngModel)]="reviewFilter"
+            (ngModelChange)="applyFilters()"
+            aria-label="Estado de revisão"
+          >
+            <option value="">Todos os estados</option>
+            <option value="due">Precisa de revisão</option>
+            <option value="scheduled">Agendado</option>
+            <option value="learned">Aprendido</option>
+          </select>
+          <select [(ngModel)]="learningFilter" (ngModelChange)="applyFilters()" aria-label="Progresso">
+            <option value="">Todos os níveis de aprendizado</option>
+            <option value="new">Novo</option>
+            <option value="learning">Aprendendo</option>
+            <option value="mastered">Dominado</option>
+          </select>
+          <select [(ngModel)]="sortOrder" (ngModelChange)="applyFilters()" aria-label="Ordenar coleção">
+            <option value="due">Ordenar por próxima revisão</option>
+            <option value="newest">Mais recentes</option>
+            <option value="alphabetical">Ordem alfabética</option>
+          </select>
+          <select [(ngModel)]="voiceLocale" aria-label="Voz em inglês">
+            <option value="en-US">Voz EUA</option>
+            <option value="en-GB">Voz Reino Unido</option>
+          </select>
+        </div>
+
+        @if (speechMessage) {
+          <p class="status" role="status">{{ speechMessage }}</p>
+        }
+
+        @if (isLoading) {
+          <p class="status">Carregando cartões...</p>
+        } @else if (errorMessage) {
+          <p class="status error-message" role="alert">{{ errorMessage }}</p>
+        } @else if (!cards.length) {
+          <p class="status">Nenhum cartão encontrado.</p>
+        } @else {
+          <div class="list">
+            @for (card of cards; track card.id) {
+              <article class="item">
+                @if (editingId === card.id) {
+                  <div class="editor">
+                    <label>
+                      <span>Inglês</span>
+                      <textarea [(ngModel)]="draftEnglish" rows="3"></textarea>
+                    </label>
+                    <label>
+                      <span>Português</span>
+                      <textarea [(ngModel)]="draftPortuguese" rows="3"></textarea>
+                    </label>
+                    <button
+                      type="button"
+                      class="secondary translation-button"
+                      (click)="translateDraftToPortuguese()"
+                      [disabled]="isTranslating || !translation.enabled"
+                    >
+                      {{ isTranslating ? 'Traduzindo...' : 'Traduzir para português' }}
+                    </button>
+                    @if (translationMessage) {
+                      <p
+                        class="translation-message"
+                        [class.error-message]="translationError"
+                        role="status"
+                      >
+                        {{ translationMessage }}
+                      </p>
+                    } @else if (!translation.enabled) {
+                      <p class="translation-message">
+                        Tradução automática indisponível no momento. Você pode preencher o campo
+                        manualmente.
+                      </p>
+                    }
+                    <label>
+                      <span>Tema</span>
+                      <input [(ngModel)]="draftCategory" type="text" />
+                    </label>
+                    <label>
+                      <span>Origem</span>
+                      <input [(ngModel)]="draftSource" type="text" />
+                    </label>
+                    <label>
+                      <span>Nível</span>
+                      <select [(ngModel)]="draftLevel">
+                        <option value="">Não informado</option>
+                        <option value="beginner">Iniciante</option>
+                        <option value="intermediate">Intermediário</option>
+                        <option value="advanced">Avançado</option>
+                      </select>
+                    </label>
+                    <div class="editor-actions">
+                      <button
+                        type="button"
+                        class="primary"
+                        (click)="saveEdit()"
+                        [disabled]="isTranslating"
+                      >
+                        Salvar
+                      </button>
+                      <button type="button" class="secondary" (click)="cancelEdit()">
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="item-head">
+                    <div>
+                      <p class="phrase">{{ card.english_text }}</p>
+                      @if (isTranslationVisible(card.id)) {
+                        <p class="translation">{{ card.portuguese_text }}</p>
+                      }
+                    </div>
+                    <div class="item-meta">
+                      <span [class]="categoryClass(card.category)">
+                        {{ categoryLabel(card.category) }}
+                      </span>
+                      <span [class]="'learning-state ' + learningState(card)">
+                        {{ learningStateLabel(card) }}
+                      </span>
+                      @if (card.source) {
+                        <span>Origem: {{ card.source }}</span>
+                      }
+                      @if (card.level) {
+                        <span>{{ levelLabel(card.level) }}</span>
+                      }
+                      <span class="review-state" [class]="'review-state ' + reviewState(card)">
+                        {{ reviewStateLabel(card) }}
+                      </span>
+                      <span>Próxima revisão: {{ card.next_review_at | date: 'dd/MM/yyyy' }}</span>
+                    </div>
+                  </div>
+                  <div class="item-actions">
+                    <button
+                      type="button"
+                      class="secondary"
+                      (click)="speakEnglish(card.english_text)"
+                      [disabled]="!speech.isSupported"
+                      aria-label="Ouvir frase em inglês"
+                      title="Ouvir frase em inglês"
+                    >
+                      🔊
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary translation-action"
+                      [class.active]="isTranslationVisible(card.id)"
+                      [attr.aria-expanded]="isTranslationVisible(card.id)"
+                      [attr.aria-label]="isTranslationVisible(card.id) ? 'Ocultar tradução' : 'Mostrar tradução'"
+                      [attr.title]="isTranslationVisible(card.id) ? 'Ocultar tradução' : 'Mostrar tradução'"
+                      (click)="toggleTranslation(card.id)"
+                    >
+                      &#128065;
+                    </button>
+                    <button type="button" class="secondary" (click)="startEdit(card)" aria-label="Editar cartão" title="Editar cartão">
+                      ✎
+                    </button>
+                    <button type="button" class="danger" (click)="requestDelete(card)" aria-label="Excluir cartão" title="Excluir cartão">
+                      🗑
+                    </button>
+                    @defer (on interaction) {
+                      <app-pronunciation-practice
+                        [referenceText]="card.english_text"
+                        [assessmentEnabled]="pronunciationAssessmentEnabled"
+                        [initiallyOpen]="true"
+                      />
+                    } @placeholder {
+                      <button type="button" class="secondary practice-trigger" aria-label="Praticar pronúncia" title="Praticar pronúncia">
+                        🎙
+                      </button>
+                    }
+                  </div>
+                }
+              </article>
+            }
+          </div>
+          <nav class="pagination" aria-label="Paginação da coleção">
+            <span>{{ filteredCount }} {{ filteredCount === 1 ? 'cartão encontrado' : 'cartões encontrados' }}</span>
+            <div>
+              <button type="button" class="secondary" (click)="changePage(-1)" [disabled]="currentPage === 1">
+                Anterior
+              </button>
+              <span>Página {{ currentPage }} de {{ totalPages }}</span>
+              <button type="button" class="secondary" (click)="changePage(1)" [disabled]="currentPage === totalPages">
+                Próxima
+              </button>
+            </div>
+          </nav>
+        }
+      </section>
+
+    @if (pendingDeleteCard) {
+      <div class="delete-dialog-backdrop" (click)="cancelDelete()" (keydown.escape)="cancelDelete()">
+        <section
+          class="delete-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+          aria-describedby="delete-dialog-description"
+          (click)="$event.stopPropagation()"
+        >
+          <p class="delete-dialog-eyebrow">EXCLUIR CARTÃO</p>
+          <h2 id="delete-dialog-title">Deseja excluir este cartão?</h2>
+          <p id="delete-dialog-description" class="delete-dialog-card">
+            {{ pendingDeleteCard.english_text }}
+          </p>
+          <p class="delete-dialog-hint">Esta ação não pode ser desfeita.</p>
+          <div class="delete-dialog-actions">
+            <button type="button" class="secondary" (click)="cancelDelete()" autofocus>Cancelar</button>
+            <button type="button" class="danger" (click)="confirmDelete()">Excluir cartão</button>
+          </div>
+        </section>
+      </div>
+    }
+    </main>

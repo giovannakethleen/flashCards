@@ -2,286 +2,11 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { CardService, type DailyActivity, type LearningInsights } from '../cards/card.service';
-import { AuthService } from '../core/auth.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  template: `
-    <section class="main-content">
-      <div class="page-header">
-        <div>
-          <p class="date-label">{{ todayLabel }}</p>
-        </div>
-      </div>
-
-      <section class="home-study" aria-labelledby="home-study-title">
-        <div class="home-study-heading">
-          <div>
-            <p class="next-action-eyebrow">SEU PRÓXIMO PASSO</p>
-            <h1 id="home-study-title">Seu ritmo de estudos</h1>
-          </div>
-          <button type="button" class="next-action-button" (click)="goToStudyNow()">
-            Estudar agora · {{ studyNowCount }}
-            {{ studyNowCount === 1 ? 'cartão' : 'cartões' }}
-          </button>
-        </div>
-        <div class="daily-goal">
-          <div
-            class="goal-ring"
-            [style.background]="goalRingBackground"
-            role="progressbar"
-            [attr.aria-valuenow]="goalProgress"
-            [attr.aria-valuemin]="0"
-            [attr.aria-valuemax]="dailyGoal"
-            [attr.aria-label]="'Meta diária: ' + goalProgress + ' de ' + dailyGoal + ' cartões'"
-          >
-            <span>{{ goalProgress }}/{{ dailyGoal }}</span>
-          </div>
-          <label class="goal-setting">
-            Meta diária
-            <span>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                [value]="dailyGoal"
-                (change)="updateDailyGoal($event)"
-                aria-label="Quantidade de cartões da meta diária"
-              />
-              cartões
-            </span>
-          </label>
-          @if (dailyGoalError) {
-            <p class="goal-error" role="alert">{{ dailyGoalError }}</p>
-          }
-        </div>
-        @if (activityError) {
-          <div class="status-box error" role="alert">
-            <span>{{ activityError }}</span>
-            <button type="button" class="retry-button" (click)="loadActivity()">
-              Tentar novamente
-            </button>
-          </div>
-        } @else if (activityLoading) {
-          <p class="home-loading" role="status">Carregando seu resumo de estudos...</p>
-        } @else {
-          <div class="home-week">
-            <div class="home-week-heading">
-              <h2>Últimos 7 dias</h2>
-              <strong>{{ streakDays }} {{ streakDays === 1 ? 'dia seguido' : 'dias seguidos' }}</strong>
-            </div>
-            <p class="streak-reminder">{{ streakReminder }}</p>
-            <div class="home-week-dots" aria-label="Atividade dos últimos sete dias">
-              @for (day of weeklyActivity; track day.date) {
-                <div class="home-week-day">
-                  <span
-                    class="home-week-dot"
-                    [attr.data-level]="day.level"
-                    [attr.title]="day.label + ': ' + day.count + ' revisões'"
-                    [attr.aria-label]="day.label + ': ' + day.count + ' revisões'"
-                    role="img"
-                  ></span>
-                  <small>{{ day.weekday }}</small>
-                </div>
-              }
-            </div>
-          </div>
-          <div class="home-month-totals" aria-label="Resumo deste mês">
-            <h2>Este mês</h2>
-            <article>
-              <strong>{{ monthTotals.cardsAdded }}</strong>
-              <span>adicionados</span>
-            </article>
-            <article>
-              <strong>{{ monthTotals.cardsStudied }}</strong>
-              <span>estudados</span>
-            </article>
-            <article>
-              <strong>{{ monthTotals.reviews }}</strong>
-              <span>revisões</span>
-            </article>
-          </div>
-        }
-        <button type="button" class="calendar-link" (click)="goToStudyPlan()">
-          Ver calendário completo <span aria-hidden="true">→</span>
-        </button>
-      </section>
-
-      @if (statsError) {
-        <div class="status-box error" role="alert">
-          <span>{{ statsError }}</span>
-          <button type="button" class="retry-button" (click)="loadStats()">Tentar novamente</button>
-        </div>
-      }
-
-      <section class="overview">
-        <div class="section-title">
-          <div>
-            <h2>Seu progresso</h2>
-          </div>
-          <span class="section-note">Resumo de hoje</span>
-        </div>
-        <div class="stats-grid" aria-label="Resumo de estudos">
-          <article class="stat-card">
-            <div class="stat-top">
-              <span class="stat-icon blue" aria-hidden="true">▤</span
-              ><span class="stat-caption">COLEÇÃO</span>
-            </div>
-            <strong>{{ statsLoading ? '—' : stats.totalCards }}</strong>
-            <p>frases salvas</p>
-            <button type="button" class="stat-link" (click)="goToCollection()">
-              Ver coleção <span aria-hidden="true">↗</span>
-            </button>
-          </article>
-          <article class="stat-card due-card">
-            <div class="stat-top">
-              <span class="stat-icon cyan" aria-hidden="true">◷</span
-              ><span class="stat-caption">NA FILA</span>
-            </div>
-            <strong>{{ statsLoading ? '—' : stats.dueToday }}</strong>
-            <p>para revisar agora</p>
-            <button type="button" class="stat-link" (click)="goToReview()">
-              Revisar frases <span aria-hidden="true">↗</span>
-            </button>
-          </article>
-          <article class="stat-card">
-            <div class="stat-top">
-              <span class="stat-icon purple" aria-hidden="true">✓</span
-              ><span class="stat-caption">CONQUISTA DE HOJE</span>
-            </div>
-            <strong>{{ statsLoading ? '—' : stats.reviewedToday }}</strong>
-            <p>já revisadas hoje</p>
-            <span class="stat-footnote">Cada revisão conta.</span>
-          </article>
-        </div>
-      </section>
-
-      <section class="learning-insights" aria-labelledby="insights-title">
-        <div class="section-title">
-          <div>
-            <h2 id="insights-title">Estatísticas de aprendizagem</h2>
-            <p>Seu aproveitamento, ritmo semanal e cartões que merecem mais atenção.</p>
-          </div>
-        </div>
-        @if (insightsError) {
-          <div class="status-box error" role="alert">
-            <span>{{ insightsError }}</span>
-            <button type="button" class="retry-button" (click)="loadLearningInsights()">
-              Tentar novamente
-            </button>
-          </div>
-        } @else if (insightsLoading) {
-          <div class="insights-card" role="status">Carregando suas estatísticas...</div>
-        } @else {
-          <div class="insights-grid">
-            <article class="accuracy-card">
-              <span>Taxa de acerto</span>
-              <strong>{{ learningInsights.accuracy === null ? '—' : learningInsights.accuracy + '%' }}</strong>
-              <small>
-                {{ learningInsights.accuracy === null
-                  ? 'Aparecerá depois da primeira revisão'
-                  : 'Em ' + learningInsights.reviewCount + ' revisões registradas' }}
-              </small>
-            </article>
-
-            <section class="insights-card weekly-progress" aria-labelledby="weekly-progress-title">
-              <h3 id="weekly-progress-title">Evolução por semana · últimas 8 semanas</h3>
-              <div class="weekly-progress-bars">
-                @for (week of learningInsights.weeklyProgress; track week.weekStart) {
-                  <div class="weekly-progress-column">
-                    <span class="weekly-progress-count">{{ week.reviews }}</span>
-                    <span
-                      class="weekly-progress-bar"
-                      [style.height.%]="weeklyBarHeight(week.reviews)"
-                      [attr.title]="week.label + ': ' + week.reviews + ' revisões'"
-                    ></span>
-                    <span class="weekly-progress-label">{{ week.label }}</span>
-                    <small>{{ week.accuracy === null ? '—' : week.accuracy + '%' }}</small>
-                  </div>
-                }
-              </div>
-              <p>Revisões por semana; a porcentagem indica a taxa de acerto daquela semana.</p>
-            </section>
-
-            <section class="insights-card difficult-list" aria-labelledby="difficult-title">
-              <div class="difficult-heading">
-                <h3 id="difficult-title">Cartões mais difíceis</h3>
-                <button
-                  type="button"
-                  class="difficult-review-button"
-                  (click)="goToDifficultReview()"
-                  [disabled]="!learningInsights.difficultCards.length"
-                >
-                  Revisar difíceis
-                </button>
-              </div>
-              @if (learningInsights.difficultCards.length) {
-                @for (card of learningInsights.difficultCards; track card.id) {
-                  <article class="difficult-card">
-                    <span>
-                      <strong>{{ card.english_text }}</strong>
-                      <small>{{ card.portuguese_text }}</small>
-                    </span>
-                    <small>{{ card.mistake_count }} {{ card.mistake_count === 1 ? 'erro' : 'erros' }}</small>
-                  </article>
-                }
-              } @else {
-                <p class="no-difficult-cards">Nenhum erro registrado ainda. Continue praticando!</p>
-              }
-            </section>
-          </div>
-        }
-      </section>
-
-      <section class="tools-section">
-        <div class="section-title">
-          <div>
-            <h2>Atalhos rápidos</h2>
-          </div>
-          <span class="section-note">Organize seu aprendizado</span>
-        </div>
-        <div class="tools-grid">
-          <button type="button" class="tool-card create-tool" (click)="goToQuickCard()">
-            <span class="tool-icon">＋</span>
-            <span class="tool-copy"
-              ><strong>Nova frase</strong><small>Guarde uma expressão que encontrou</small></span
-            >
-            <span class="tool-arrow">↗</span>
-          </button>
-          <button type="button" class="tool-card" (click)="goToCollection()">
-            <span class="tool-icon collection-tool-icon">⌕</span>
-            <span class="tool-copy"
-              ><strong>Explorar coleção</strong
-              ><small>Encontre e organize seus cartões</small></span
-            >
-            <span class="tool-arrow">↗</span>
-          </button>
-        </div>
-      </section>
-
-      <section class="backup-strip">
-        <div class="backup-symbol" aria-hidden="true">↕</div>
-        <div class="backup-copy">
-          <strong>Backup e portabilidade</strong
-          ><small>Seus cartões também podem ser guardados em um arquivo JSON.</small>
-        </div>
-        <button type="button" class="backup-button" (click)="exportJson()">Exportar</button>
-        <button type="button" class="backup-button" (click)="triggerImport()">Importar</button>
-      </section>
-
-      <input
-        id="jsonInput"
-        type="file"
-        accept="application/json"
-        hidden
-        (change)="handleImport($event)"
-      />
-      @if (statusMessage) {
-        <div class="status-box" role="status">{{ statusMessage }}</div>
-      }
-    </section>
-  `,
+  templateUrl: './dashboard.html',
 })
 export class DashboardComponent implements OnInit {
   statusMessage = '';
@@ -306,8 +31,6 @@ export class DashboardComponent implements OnInit {
   };
   insightsLoading = true;
   insightsError = '';
-  dailyGoal = 5;
-  dailyGoalError = '';
   streakDays = 0;
   readonly Math = Math;
 
@@ -320,12 +43,10 @@ export class DashboardComponent implements OnInit {
   constructor(
     private readonly router: Router,
     private readonly cardService: CardService,
-    private readonly auth: AuthService,
     private readonly changeDetector: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
-    void this.loadDailyGoal();
     void this.loadStats();
     void this.loadActivity();
     void this.loadLearningInsights();
@@ -429,22 +150,13 @@ export class DashboardComponent implements OnInit {
     return count ? Math.max(8, (count / maximum) * 100) : 3;
   }
 
-  get goalProgress() {
-    return Math.min(this.stats.reviewedToday, this.dailyGoal);
-  }
-
-  get goalRingBackground() {
-    const progress = this.statsLoading ? 0 : (this.goalProgress / this.dailyGoal) * 100;
-    return `conic-gradient(#34d399 ${progress}%, rgba(148, 163, 184, 0.2) ${progress}% 100%)`;
-  }
-
   get studyNowCount() {
     if (this.statsLoading) {
-      return this.dailyGoal;
+      return 5;
     }
     return this.stats.dueToday
-      ? Math.min(this.stats.dueToday, this.dailyGoal)
-      : this.dailyGoal;
+      ? Math.min(this.stats.dueToday, 5)
+      : 5;
   }
 
   get streakReminder() {
@@ -465,65 +177,6 @@ export class DashboardComponent implements OnInit {
 
   goToDifficultReview() {
     void this.router.navigate(['/review'], { queryParams: { difficult: 'true' } });
-  }
-
-  async updateDailyGoal(event: Event) {
-    const input = event.target;
-    if (!(input instanceof HTMLInputElement)) {
-      return;
-    }
-
-    const goal = Number(input.value);
-    if (!Number.isInteger(goal) || goal < 1 || goal > 100) {
-      this.dailyGoalError = 'Escolha uma meta entre 1 e 100 cartões.';
-      input.value = String(this.dailyGoal);
-      return;
-    }
-
-    try {
-      const { data } = await this.auth.getSession();
-      const userId = data.session?.user.id;
-      if (!userId) {
-        throw new Error('Não foi possível identificar sua conta para salvar a meta.');
-      }
-      window.localStorage.setItem(`flashcards-daily-goal-${userId}`, String(goal));
-      this.dailyGoal = goal;
-      this.dailyGoalError = '';
-    } catch (error) {
-      this.dailyGoalError =
-        error instanceof Error ? error.message : 'Não foi possível salvar sua meta diária.';
-      input.value = String(this.dailyGoal);
-    } finally {
-      this.changeDetector.markForCheck();
-    }
-  }
-
-  private async loadDailyGoal() {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    try {
-      const { data } = await this.auth.getSession();
-      const userId = data.session?.user.id;
-      if (!userId) {
-        return;
-      }
-      const storedGoal = window.localStorage.getItem(`flashcards-daily-goal-${userId}`);
-      if (storedGoal === null) {
-        return;
-      }
-      const goal = Number(storedGoal);
-      if (Number.isInteger(goal) && goal >= 1 && goal <= 100) {
-        this.dailyGoal = goal;
-      } else {
-        this.dailyGoalError = 'A meta salva é inválida. Escolha um novo valor entre 1 e 100.';
-      }
-    } catch {
-      this.dailyGoalError = 'Não foi possível ler sua meta diária neste navegador.';
-    } finally {
-      this.changeDetector.markForCheck();
-    }
   }
 
   private calculateStreak(activity: DailyActivity[], todayDate: string) {

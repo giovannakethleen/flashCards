@@ -1,0 +1,668 @@
+
+    <main class="plan-page">
+      <header class="page-heading">
+        <div>
+          <p class="eyebrow">ORGANIZE SEU APRENDIZADO</p>
+          <h1>Meu plano de estudos</h1>
+          <p class="intro">
+            {{
+              activePlanName || 'Planeje suas sessões e acompanhe as revisões que estão chegando.'
+            }}
+          </p>
+        </div>
+        <button type="button" class="primary-button add-top" (click)="openNewActivity()">
+          <span aria-hidden="true">＋</span> Nova atividade
+        </button>
+      </header>
+
+      @if (errorMessage) {
+        <div class="notice error" role="alert">
+          <span>{{ errorMessage }}</span>
+          <button type="button" (click)="loadCalendar()">Tentar novamente</button>
+        </div>
+      }
+
+      <nav class="plan-tabs" aria-label="Meu plano">
+        <button
+          type="button"
+          [class.active]="activeTab === 'calendar'"
+          [attr.aria-pressed]="activeTab === 'calendar'"
+          (click)="setTab('calendar')"
+        >
+          Calendário
+        </button>
+        <button
+          type="button"
+          [class.active]="activeTab === 'notes'"
+          [attr.aria-pressed]="activeTab === 'notes'"
+          (click)="setTab('notes')"
+        >
+          Notas
+        </button>
+      </nav>
+
+      @if (activeTab === 'calendar') {
+      <section class="plan-generator" aria-label="Criar plano mensal">
+        <p class="plan-guidance">
+          Meta orientativa: cerca de 3h a 3h30 por dia, incluindo o curso. Ajuste, adie ou remova
+          atividades sem restrições.
+        </p>
+        <label>
+          Nome do plano
+          <input
+            type="text"
+            [(ngModel)]="planName"
+            [ngModelOptions]="{ standalone: true }"
+            maxlength="120"
+          />
+        </label>
+        <label>
+          Mês do calendário
+          <input type="month" [(ngModel)]="planMonth" [ngModelOptions]="{ standalone: true }" />
+        </label>
+        <button
+          type="button"
+          class="secondary-button"
+          (click)="generateMonthlyPlan()"
+          [disabled]="generatingPlan || deletingPlan || !planName.trim() || !planMonth"
+        >
+          {{ generatingPlan ? 'Criando plano...' : 'Criar plano mensal' }}
+        </button>
+        <button
+          type="button"
+          class="secondary-button delete-plan-button"
+          (click)="deleteMonthlyPlan()"
+          [disabled]="generatingPlan || deletingPlan || !planName.trim() || !planMonth"
+        >
+          {{ deletingPlan ? 'Excluindo plano...' : 'Excluir plano deste mês' }}
+        </button>
+        @if (planMessage) {
+          <p class="plan-message" role="status">{{ planMessage }}</p>
+        }
+      </section>
+
+      <section class="calendar-panel" aria-label="Calendário do plano de estudos">
+        <div class="calendar-toolbar">
+          <div class="calendar-navigation">
+            <button
+              type="button"
+              class="icon-button"
+              (click)="movePeriod(-1)"
+              aria-label="Anterior"
+            >
+              ‹
+            </button>
+            <button type="button" class="today-button" (click)="goToToday()">Hoje</button>
+            <button type="button" class="icon-button" (click)="movePeriod(1)" aria-label="Próximo">
+              ›
+            </button>
+            <h2>{{ periodLabel }}</h2>
+          </div>
+          <div class="view-switch" role="group" aria-label="Visualização do calendário">
+            <button
+              type="button"
+              [class.active]="view === 'day'"
+              [attr.aria-pressed]="view === 'day'"
+              (click)="setView('day')"
+            >
+              Dia
+            </button>
+            <button
+              type="button"
+              [class.active]="view === 'week'"
+              [attr.aria-pressed]="view === 'week'"
+              (click)="setView('week')"
+            >
+              Semana
+            </button>
+            <button
+              type="button"
+              [class.active]="view === 'month'"
+              [attr.aria-pressed]="view === 'month'"
+              (click)="setView('month')"
+            >
+              Mês
+            </button>
+          </div>
+        </div>
+
+        @if (loading) {
+          <div class="loading" role="status">Carregando seu calendário...</div>
+        } @else if (view === 'month') {
+          <div class="month-grid">
+            <div class="weekday-row" aria-hidden="true">
+              @for (weekday of weekdayNames; track weekday) {
+                <span>{{ weekday }}</span>
+              }
+            </div>
+            <div class="month-days">
+              @for (day of monthDays; track $index) {
+                @if (day) {
+                  <button
+                    type="button"
+                    class="month-day"
+                    [class.today]="day.isToday"
+                    [class.selected]="day.isSelected"
+                    [attr.data-level]="activityLevel(day.date)"
+                    [attr.aria-pressed]="day.isSelected"
+                    [attr.aria-label]="
+                      formatDateLabel(day.date) +
+                      ', ' +
+                      activityFor(day.date).reviews +
+                      ' revisões realizadas, ' +
+                      activityFor(day.date).cardsAdded +
+                      ' cartões adicionados, ' +
+                      activityFor(day.date).cardsStudied +
+                      ' cartões estudados, ' +
+                      activitiesOn(day.date).length +
+                      ' atividades'
+                    "
+                    (click)="selectDate(day.date)"
+                  >
+                    <span class="day-number">{{ day.dayNumber }}</span>
+                    <span class="day-items">
+                      @for (activity of activitiesOn(day.date).slice(0, 2); track activity.id) {
+                        <span
+                          class="month-activity"
+                          [class]="
+                            'month-activity status-' +
+                            activity.status +
+                            ' type-' +
+                            activity.activity_type
+                          "
+                        >
+                          {{ activity.title }} · {{ activity.duration_minutes ?? '—' }}m
+                        </span>
+                      }
+                      @if (activitiesOn(day.date).length > 2) {
+                        <span class="more-items">
+                          +{{ activitiesOn(day.date).length - 2 }} mais
+                        </span>
+                      }
+                      @if (
+                        activityFor(day.date).reviews ||
+                        activityFor(day.date).cardsAdded ||
+                        activityFor(day.date).cardsStudied
+                      ) {
+                        <span class="history-marker">
+                          {{ activityFor(day.date).cardsAdded }} adicionados ·
+                          {{ activityFor(day.date).cardsStudied }} estudados ·
+                          {{ activityFor(day.date).reviews }} revisões
+                        </span>
+                      }
+                      @if (reviewsOn(day.date).length) {
+                        <span class="review-marker">
+                          ◷ {{ reviewsOn(day.date).length }} revisões
+                        </span>
+                      }
+                    </span>
+                  </button>
+                } @else {
+                  <div class="month-day outside-month" aria-hidden="true"></div>
+                }
+              }
+            </div>
+          </div>
+        } @else if (view === 'week') {
+          <div class="week-grid">
+            @for (day of weekDays; track day.date) {
+              <button
+                type="button"
+                class="week-day"
+                [class.selected]="day.isSelected"
+                [class.today]="day.isToday"
+                [class.drop-target]="dropTargetDate === day.date"
+                [attr.aria-pressed]="day.isSelected"
+                (dragover)="allowActivityDrop($event, day.date)"
+                (dragleave)="clearDropTarget(day.date)"
+                (drop)="dropActivity($event, day.date)"
+                (click)="selectDate(day.date)"
+              >
+                <span class="week-day-name">{{ weekdayLong(day.date) }}</span>
+                <strong>{{ day.dayNumber }}</strong>
+                <span class="week-items">
+                  @for (activity of activitiesOn(day.date).slice(0, 3); track activity.id) {
+                    <span
+                      class="week-activity"
+                      [draggable]="activity.status === 'planned' || activity.status === 'unrecorded'"
+                      [class]="
+                        'week-activity status-' +
+                        activity.status +
+                        ' type-' +
+                        activity.activity_type
+                      "
+                      (dragstart)="startActivityDrag($event, activity)"
+                    >
+                      {{ activity.start_time ? activity.start_time.slice(0, 5) + ' · ' : ''
+                      }}{{ activity.title }} · {{ activity.duration_minutes ?? '—' }}m
+                    </span>
+                  }
+                  @if (activitiesOn(day.date).length > 3) {
+                    <span class="more-items"> +{{ activitiesOn(day.date).length - 3 }} mais </span>
+                  }
+                  @if (reviewsOn(day.date).length) {
+                    <span class="review-marker">◷ {{ reviewsOn(day.date).length }} revisões</span>
+                  }
+                  @if (
+                    activityFor(day.date).cardsAdded ||
+                    activityFor(day.date).cardsStudied ||
+                    activityFor(day.date).reviews
+                  ) {
+                    <span class="history-marker">
+                      {{ activityFor(day.date).cardsAdded }} adicionados ·
+                      {{ activityFor(day.date).cardsStudied }} estudados ·
+                      {{ activityFor(day.date).reviews }} revisões
+                    </span>
+                  }
+                </span>
+              </button>
+            }
+          </div>
+        } @else {
+          <div class="day-overview">
+            <span class="day-overview-name">{{ formatDateLabel(selectedDate) }}</span>
+            <span>
+              {{ activitiesOn(selectedDate).length }}
+              {{ activitiesOn(selectedDate).length === 1 ? 'atividade' : 'atividades' }}
+            </span>
+            <span>Planejado: {{ selectedDayPlannedMinutes }} min</span>
+            <span>Real: {{ selectedDayActualMinutes }} min</span>
+            <span>{{ activityFor(selectedDate).cardsAdded }} cartões adicionados</span>
+            <span>{{ activityFor(selectedDate).cardsStudied }} cartões estudados</span>
+            <span>{{ activityFor(selectedDate).reviews }} revisões</span>
+          </div>
+        }
+      </section>
+
+      <section class="day-panel" aria-labelledby="selected-day-heading">
+        <div class="day-heading">
+          <div>
+            <p class="eyebrow">AGENDA DO DIA</p>
+            <h2 id="selected-day-heading">{{ formatDateLabel(selectedDate) }}</h2>
+          </div>
+          <button type="button" class="primary-button" (click)="openNewActivity()">
+            ＋ Adicionar
+          </button>
+        </div>
+
+        <section class="day-history" aria-label="Atividade realizada neste dia">
+          <h3>O que você fez</h3>
+          <div class="day-history-stats">
+            <span><strong>{{ activityFor(selectedDate).cardsAdded }}</strong> adicionados</span>
+            <span><strong>{{ activityFor(selectedDate).cardsStudied }}</strong> estudados</span>
+            <span><strong>{{ activityFor(selectedDate).reviews }}</strong> revisões</span>
+          </div>
+        </section>
+
+        <section class="day-note" aria-labelledby="day-note-heading">
+          <label for="day-note-content" id="day-note-heading">Anotações deste dia</label>
+          <textarea
+            id="day-note-content"
+            [ngModel]="dayNoteContent"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="onDayNoteInput($event)"
+            maxlength="30000"
+            placeholder="Registre o que estudou, dúvidas ou pontos para revisar..."
+          ></textarea>
+          <span class="note-save-status" role="status">{{ dayNoteStatus }}</span>
+        </section>
+
+        @if (reviewsOn(selectedDate).length) {
+          <article class="review-card">
+            <div class="review-icon" aria-hidden="true">◷</div>
+            <div class="review-copy">
+              <strong>Revisões de flashcards previstas</strong>
+              <span
+                >{{ reviewsOn(selectedDate).length }}
+                {{ reviewsOn(selectedDate).length === 1 ? 'cartão' : 'cartões' }} para revisar</span
+              >
+              <small>{{ reviewTitles(selectedDate) }}</small>
+            </div>
+            <button type="button" class="secondary-button" (click)="goToReview()">Revisar</button>
+          </article>
+        }
+
+        @if (activitiesOn(selectedDate).length) {
+          <div class="activity-list">
+            @for (activity of activitiesOn(selectedDate); track activity.id) {
+              <article
+                class="activity-card"
+                [class.completed]="activity.status === 'completed'"
+                [class.status-postponed]="activity.status === 'postponed'"
+                [class.status-skipped]="activity.status === 'skipped'"
+                [class.status-unrecorded]="activity.status === 'unrecorded'"
+              >
+                <span class="activity-type-icon" aria-hidden="true">{{
+                  activityIcon(activity.activity_type)
+                }}</span>
+                <div class="activity-copy">
+                  <div class="activity-title-row">
+                    <strong>{{ activity.title }}</strong>
+                    <span class="status-chip" [class.done]="activity.status === 'completed'">
+                      {{ statusLabel(activity.status) }}
+                    </span>
+                  </div>
+                  <p>
+                    {{ activityTypeLabel(activity.activity_type) }}
+                    @if (activity.start_time) {
+                      <span> · {{ activity.start_time.slice(0, 5) }}</span>
+                    }
+                    @if (activity.duration_minutes) {
+                      <span> · {{ activity.duration_minutes }} min</span>
+                    }
+                    @if (activity.actual_duration_minutes) {
+                      <span> · Real: {{ activity.actual_duration_minutes }} min</span>
+                    }
+                  </p>
+                  @if (activity.lesson_reference) {
+                    <small>Lição: {{ activity.lesson_reference }}</small>
+                  }
+                </div>
+                <div class="activity-actions">
+                  @if (activity.status !== 'completed') {
+                    <button
+                      type="button"
+                      class="complete-button"
+                      (click)="changeActivityStatus(activity, 'completed')"
+                      [disabled]="saving"
+                    >
+                      Concluir
+                    </button>
+                  } @else {
+                    <span class="completed-label">Concluída</span>
+                  }
+                  <label class="status-control">
+                    <span class="visually-hidden">Status da atividade</span>
+                    <select
+                      [ngModel]="activity.status"
+                      [ngModelOptions]="{ standalone: true }"
+                      (ngModelChange)="changeActivityStatus(activity, $event)"
+                      [disabled]="saving"
+                    >
+                      @for (status of activityStatuses; track status.value) {
+                        <option [value]="status.value">{{ status.label }}</option>
+                      }
+                    </select>
+                  </label>
+                  @if (activity.activity_type === 'flashcard_review') {
+                    <button type="button" class="text-button" (click)="goToReview()">
+                      Revisar cards
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="text-button"
+                    (click)="goToFlashcardGeneration(activity)"
+                  >
+                    Gerar flashcards com IA
+                  </button>
+                  <button type="button" class="text-button" (click)="editActivity(activity)">
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button delete-button"
+                    (click)="deleteActivity(activity)"
+                    [disabled]="saving"
+                  >
+                    <span aria-hidden="true">🗑</span> Excluir
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        } @else if (!reviewsOn(selectedDate).length) {
+          <div class="empty-state">
+            <span aria-hidden="true">✦</span>
+            <strong>Nenhuma atividade planejada</strong>
+            <p>Adicione uma sessão para manter seu ritmo de estudos.</p>
+          </div>
+        }
+
+        @if (formOpen) {
+          <form class="activity-form" (ngSubmit)="saveActivity()" #activityForm="ngForm">
+            <div class="form-heading">
+              <h3>{{ editingId ? 'Editar atividade' : 'Nova atividade' }}</h3>
+              <button type="button" class="text-button" (click)="closeForm()">Cancelar</button>
+            </div>
+            <label>
+              Nome da atividade
+              <input
+                type="text"
+                name="title"
+                [(ngModel)]="form.title"
+                required
+                maxlength="120"
+                placeholder="Ex.: Unidade 3 — vocabulário de viagens"
+              />
+            </label>
+            <div class="form-row">
+              <label>
+                Tipo
+                <select name="activity_type" [(ngModel)]="form.activity_type" required>
+                  @for (type of activityTypes; track type.value) {
+                    <option [value]="type.value">{{ type.label }}</option>
+                  }
+                </select>
+              </label>
+              <label>
+                Data
+                <input type="date" name="starts_on" [(ngModel)]="form.starts_on" required />
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Horário <span class="optional">(opcional)</span>
+                <input type="time" name="start_time" [(ngModel)]="form.start_time" />
+              </label>
+              <label>
+                Duração em minutos <span class="optional">(opcional)</span>
+                <input
+                  type="number"
+                  name="duration_minutes"
+                  [(ngModel)]="form.duration_minutes"
+                  min="1"
+                  max="1440"
+                  placeholder="Ex.: 30"
+                />
+              </label>
+            </div>
+            <label>
+              Unidade ou lição <span class="optional">(opcional)</span>
+              <input
+                type="text"
+                name="lesson_reference"
+                [(ngModel)]="form.lesson_reference"
+                maxlength="160"
+                placeholder="Ex.: Unidade 3, lição 2"
+              />
+            </label>
+            <div class="form-row">
+              <label>
+                Duração real em minutos <span class="optional">(opcional)</span>
+                <input
+                  type="number"
+                  name="actual_duration_minutes"
+                  [(ngModel)]="form.actual_duration_minutes"
+                  min="1"
+                  max="1440"
+                  placeholder="Registrar depois"
+                />
+              </label>
+              <label>
+                Plano <span class="optional">(opcional)</span>
+                <input
+                  type="text"
+                  name="plan_name"
+                  [(ngModel)]="form.plan_name"
+                  maxlength="120"
+                  placeholder="A1 — Level 2"
+                />
+              </label>
+            </div>
+            @if (formError) {
+              <p class="form-error" role="alert">{{ formError }}</p>
+            }
+            <button
+              type="submit"
+              class="primary-button save-button"
+              [disabled]="activityForm.invalid || saving"
+            >
+              {{ saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Salvar atividade' }}
+            </button>
+          </form>
+        }
+      </section>
+      } @else {
+        <section class="notes-workspace" aria-label="Notas livres">
+          <aside class="notes-sidebar">
+            <div class="notes-list-heading">
+              <h2>Notas livres</h2>
+              <button
+                type="button"
+                class="primary-button"
+                (click)="createFreeNote()"
+                [disabled]="notesLoading || creatingNote"
+              >
+                ＋ Nova nota
+              </button>
+            </div>
+            <label class="note-search">
+              <span class="visually-hidden">Buscar notas</span>
+              <input
+                type="search"
+                [(ngModel)]="noteSearch"
+                [ngModelOptions]="{ standalone: true }"
+                placeholder="Buscar notas..."
+              />
+            </label>
+            <label class="note-search">
+              <span>Filtrar por tag</span>
+              <select [(ngModel)]="noteTagFilter" [ngModelOptions]="{ standalone: true }">
+                <option value="">Todas as tags</option>
+                @for (tag of allNoteTags; track tag) { <option [value]="tag">{{ tag }}</option> }
+              </select>
+            </label>
+            @if (notesError) {
+              <p class="form-error" role="alert">{{ notesError }}</p>
+            } @else if (notesLoading) {
+              <p class="loading" role="status">Carregando notas...</p>
+            } @else if (!filteredNotes.length) {
+              <p class="notes-empty">
+                {{ noteSearch ? 'Nenhuma nota encontrada.' : 'Suas notas aparecerão aqui.' }}
+              </p>
+            } @else {
+              <div class="notes-list">
+                @for (note of filteredNotes; track note.id) {
+                  <button
+                    type="button"
+                    class="note-list-item"
+                    [class.selected]="selectedNote?.id === note.id"
+                    [attr.aria-pressed]="selectedNote?.id === note.id"
+                    (click)="selectNote(note)"
+                  >
+                    <strong>{{ note.title || 'Sem título' }}</strong>
+                    <span>{{ note.content || 'Nota vazia' }}</span>
+                    @if (note.tags?.length) { <small>{{ note.tags.join(' · ') }}</small> }
+                    <small>{{ formatNoteDate(note.updated_at) }}</small>
+                  </button>
+                }
+              </div>
+            }
+          </aside>
+
+          <section class="note-editor" aria-label="Editor de nota">
+            @if (selectedNote) {
+              <label>
+                <span class="visually-hidden">Título da nota</span>
+                <input
+                  class="note-title-input"
+                  type="text"
+                  [(ngModel)]="selectedNote.title"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="scheduleNoteSave()"
+                  maxlength="120"
+                  placeholder="Título da nota"
+                />
+              </label>
+              <div class="note-tags-editor">
+                <form (submit)="addNoteTag($event)">
+                  <label for="note-tag">Tags</label>
+                  <input id="note-tag" type="text" [(ngModel)]="noteTagDraft" [ngModelOptions]="{ standalone: true }" maxlength="30" placeholder="Adicionar tag" />
+                  <button type="submit" class="secondary-button">Adicionar</button>
+                </form>
+                <div class="note-tag-chips">
+                  @for (tag of selectedNote.tags ?? []; track tag) {
+                    <button type="button" (click)="removeNoteTag(tag)" [attr.aria-label]="'Remover tag ' + tag">{{ tag }} ×</button>
+                  }
+                </div>
+              </div>
+              <div class="note-mode-switch">
+                <button type="button" [class.active]="!notePreview" (click)="notePreview = false">Escrever</button>
+                <button type="button" [class.active]="notePreview" (click)="notePreview = true">Visualizar</button>
+              </div>
+              @if (notePreview) {
+                <article class="markdown-preview" [innerHTML]="renderMarkdown(selectedNote.content)"></article>
+              } @else {
+              <label>
+                <span class="visually-hidden">ConteÃºdo da nota</span>
+                <textarea
+                  class="free-note-content"
+                  [(ngModel)]="selectedNote.content"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="scheduleNoteSave()"
+                  maxlength="30000"
+                  placeholder="Escreva suas anotações em Markdown..."
+                ></textarea>
+              </label>
+              }
+              <div class="note-editor-footer">
+                <span class="note-save-status" role="status">{{ freeNoteStatus }}</span>
+                <button
+                  type="button"
+                  class="text-button delete-button"
+                  (click)="deleteFreeNote(selectedNote)"
+                  [disabled]="deletingNote"
+                >
+                  Excluir nota
+                </button>
+              </div>
+              <div class="note-ai-actions">
+                <button
+                  type="button"
+                  class="secondary-button"
+                  (click)="createCardsFromNote(selectedNote)"
+                  [disabled]="!selectedNote.content.trim()"
+                >
+                  Criar cartões com IA
+                </button>
+                <button
+                  type="button"
+                  class="secondary-button"
+                  (click)="explainNote(selectedNote)"
+                  [disabled]="!selectedNote.content.trim() || explainingNote"
+                >
+                  {{ explainingNote ? 'Explicando...' : 'Explicar com IA' }}
+                </button>
+              </div>
+              @if (noteExplanation) {
+                <article class="note-explanation">
+                  <h3>Explicação</h3>
+                  <p>{{ noteExplanation }}</p>
+                </article>
+              }
+              @if (noteAiError) {
+                <p class="form-error" role="alert">{{ noteAiError }}</p>
+              }
+            } @else {
+              <div class="empty-state">
+                <span aria-hidden="true">✎</span>
+                <strong>Suas notas de estudo</strong>
+                <p>Crie uma nota para registrar regras, dúvidas ou vocabulário novo.</p>
+              </div>
+            }
+          </section>
+        </section>
+      }
+
+    </main>

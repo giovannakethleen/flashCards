@@ -721,6 +721,17 @@ app-study-plan {
     padding: clamp(0.8rem, 2vw, 1.2rem);
   }
 
+  .note-tags-editor form, .note-mode-switch { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .note-tags-editor form input { flex: 1; min-width: 10rem; }
+  .note-tag-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .note-tag-chips button, .note-mode-switch button { border: 1px solid var(--border-color, #d5dbe5); border-radius: 999px; padding: 0.35rem 0.7rem; background: transparent; color: inherit; cursor: pointer; }
+  .note-mode-switch { margin: 0.75rem 0; }
+  .note-mode-switch .active { background: var(--primary-color, #3157c8); color: white; }
+  .markdown-preview { min-height: 16rem; padding: 1rem; overflow: auto; border: 1px solid var(--border-color, #d5dbe5); border-radius: 0.6rem; }
+  .markdown-preview pre { padding: 0.75rem; overflow: auto; background: #f2f4f7; border-radius: 0.4rem; }
+  .markdown-preview table { width: 100%; border-collapse: collapse; }
+  .markdown-preview th, .markdown-preview td { padding: 0.4rem; border: 1px solid #d5dbe5; text-align: left; }
+
   .note-title-input {
     min-height: 42px;
     color: #f1f5f9;

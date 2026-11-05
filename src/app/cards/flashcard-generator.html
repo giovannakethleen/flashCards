@@ -1,0 +1,172 @@
+
+    <main class="generator-page">
+      <header class="page-heading">
+        <p class="eyebrow">ESTUDO COM INTELIGÊNCIA ARTIFICIAL</p>
+        <h1>Criar flashcards com IA</h1>
+        <p class="intro">
+          Gere cartões a partir do conteúdo de uma lição, vídeo, exercício, conversa ou qualquer
+          outro material que você estudou.
+        </p>
+      </header>
+
+      <section class="generator-panel" aria-labelledby="generator-form-heading">
+        <h2 id="generator-form-heading">Conteúdo estudado</h2>
+        <label for="lesson-summary">Resumo, vocabulário ou exemplos da atividade</label>
+        <textarea
+          id="lesson-summary"
+          [(ngModel)]="summary"
+          [ngModelOptions]="{ standalone: true }"
+          maxlength="5000"
+          rows="8"
+          placeholder="Cole suas anotações ou escreva frases e palavras que estudou. Quanto mais contexto, melhores serão as sugestões."
+          [disabled]="generating || saving"
+        ></textarea>
+        <div class="field-meta">
+          <label for="learner-level">Nível de inglês</label>
+          <select
+            id="learner-level"
+            [(ngModel)]="level"
+            [ngModelOptions]="{ standalone: true }"
+            [disabled]="generating || saving"
+          >
+            <option value="beginner">Iniciante</option>
+            <option value="intermediate">Intermediário</option>
+            <option value="advanced">Avançado</option>
+          </select>
+          <label for="card-source">Origem <span>(opcional)</span></label>
+          <input
+            id="card-source"
+            [(ngModel)]="source"
+            [ngModelOptions]="{ standalone: true }"
+            maxlength="160"
+            placeholder="Ex.: livro, vídeo ou lição"
+            [disabled]="generating || saving"
+          />
+          <span class="character-count">{{ summary.length }}/5000</span>
+        </div>
+
+        <p class="privacy-notice">
+          O resumo só será enviado ao Gemini quando você solicitar a geração. Na camada gratuita, o
+          Google pode usar o conteúdo para melhorar seus produtos. Não envie dados pessoais ou
+          conteúdo que não queira compartilhar. As traduções e respostas em português são geradas
+          automaticamente e podem ser editadas antes de salvar.
+        </p>
+
+        @if (errorMessage) {
+          <p class="message error" role="alert">{{ errorMessage }}</p>
+        }
+        @if (infoMessage) {
+          <p class="message info" role="status">{{ infoMessage }}</p>
+        }
+        @if (needsMoreContext) {
+          <p class="message info" role="status">{{ needsMoreContext }}</p>
+        }
+
+        <button
+          type="button"
+          class="primary-button"
+          (click)="generate()"
+          [disabled]="generating || saving || !summary.trim() || summary.length > 5000"
+        >
+          {{ generating ? 'Gerando sugestões...' : 'Gerar flashcards' }}
+        </button>
+      </section>
+
+      @if (drafts.length) {
+        <section class="draft-section" aria-labelledby="draft-heading">
+          <div class="draft-heading">
+            <div>
+              <p class="eyebrow">REVISE ANTES DE SALVAR</p>
+              <h2 id="draft-heading">Sugestões geradas</h2>
+            </div>
+            <span>{{ selectedCount }} selecionados</span>
+          </div>
+
+          <div class="draft-list">
+            @for (draft of drafts; track draft.id) {
+              <article class="draft-card">
+                <label class="draft-select">
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="draft.selected"
+                    [ngModelOptions]="{ standalone: true }"
+                    [disabled]="saving"
+                  />
+                  Incluir este cartão
+                </label>
+                <button
+                  type="button"
+                  class="remove-button"
+                  (click)="removeDraft(draft.id)"
+                  [disabled]="saving"
+                >
+                  Remover
+                </button>
+                <label>
+                  Frente em inglês
+                  <textarea
+                    [(ngModel)]="draft.front"
+                    [ngModelOptions]="{ standalone: true }"
+                    maxlength="500"
+                    rows="2"
+                    [disabled]="saving"
+                  ></textarea>
+                </label>
+                <label>
+                  {{
+                    draft.type === 'cloze'
+                      ? 'Resposta em português'
+                      : 'Tradução em português'
+                  }}
+                  <textarea
+                    [(ngModel)]="draft.back"
+                    [ngModelOptions]="{ standalone: true }"
+                    maxlength="500"
+                    rows="2"
+                    [disabled]="saving"
+                  ></textarea>
+                </label>
+                <div class="draft-fields">
+                  <label>
+                    Palavra ou expressão em foco
+                    <input
+                      [(ngModel)]="draft.focus"
+                      [ngModelOptions]="{ standalone: true }"
+                      maxlength="120"
+                      [disabled]="saving"
+                    />
+                  </label>
+                  <label>
+                    Tipo
+                    <select
+                      [(ngModel)]="draft.type"
+                      [ngModelOptions]="{ standalone: true }"
+                      [disabled]="saving"
+                    >
+                      <option value="vocabulary">Vocabulário</option>
+                      <option value="sentence">Frase</option>
+                      <option value="cloze">Lacuna</option>
+                    </select>
+                  </label>
+                </div>
+                <small>Origem: {{ draft.source || 'Não informada' }}</small>
+              </article>
+            }
+          </div>
+
+          <button
+            type="button"
+            class="primary-button"
+            (click)="saveSelected()"
+            [disabled]="saving || !selectedDraftsValid"
+          >
+            {{ saving ? 'Salvando...' : 'Salvar ' + selectedCount + ' cartões selecionados' }}
+          </button>
+        </section>
+      }
+
+      <footer class="page-footer">
+        <a routerLink="/study-plan">Voltar ao plano de estudos</a>
+        <a routerLink="/cards">Ver minha coleção</a>
+      </footer>
+    </main>

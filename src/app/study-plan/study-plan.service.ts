@@ -34,6 +34,7 @@ export interface StudyNote {
   title: string;
   content: string;
   updated_at: string;
+  tags: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -139,7 +140,7 @@ export class StudyPlanService {
     const user = this.getCurrentUser();
     const { data, error } = await client
       .from('study_notes')
-      .select('id, title, content, updated_at')
+      .select('id, title, content, updated_at, tags')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
 
@@ -159,8 +160,9 @@ export class StudyPlanService {
         user_id: user.id,
         title: title.trim(),
         content,
+        tags: [],
       })
-      .select('id, title, content, updated_at')
+      .select('id, title, content, updated_at, tags')
       .single();
 
     if (error || !data) {
@@ -170,12 +172,12 @@ export class StudyPlanService {
     return data as StudyNote;
   }
 
-  async updateNote(noteId: string, title: string, content: string): Promise<void> {
+  async updateNote(noteId: string, title: string, content: string, tags: string[]): Promise<void> {
     const client = this.getClient();
     const user = this.getCurrentUser();
     const { error } = await client
       .from('study_notes')
-      .update({ title: title.trim(), content, updated_at: new Date().toISOString() })
+      .update({ title: title.trim(), content, tags, updated_at: new Date().toISOString() })
       .eq('id', noteId)
       .eq('user_id', user.id);
 
