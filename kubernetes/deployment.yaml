@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flashcards-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flashcards-app
+  template:
+    metadata:
+      labels:
+        app: flashcards-app
+    spec:
+      containers:
+        - name: flashcards-app
+          image: flashcards-app:local
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flashcards-app
+spec:
+  selector:
+    app: flashcards-app
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP

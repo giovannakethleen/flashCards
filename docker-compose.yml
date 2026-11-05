@@ -1,0 +1,6 @@
+services:
+  flashcards:
+    build: .
+    container_name: flashcards-app
+    ports:
+      - "4200:80"
