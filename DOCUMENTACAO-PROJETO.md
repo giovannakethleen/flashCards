@@ -161,8 +161,8 @@ Comandos disponíveis:
 ## Build e publicação
 
 - **Angular:** `angular.json` define `src/main.ts` como entrada, SCSS como linguagem de estilo e limites de tamanho para o build de produção. O Service Worker é ativado fora do modo de desenvolvimento.
-- **Netlify:** `netlify.toml` define `npm run build`, publica `dist/flashcards` e reescreve rotas para `index.html`. As variáveis necessárias devem ser definidas na configuração do site antes do deploy.
-- **Docker:** o `Dockerfile` executa `npm ci` e o build em Node 20 Alpine; a imagem final usa Nginx Alpine para servir os arquivos. O `docker-compose.yml` publica a aplicação na porta local `4200`.
+- **Netlify:** `netlify.toml` define `npm run build`, publica `dist/flashcards/browser` e reescreve rotas para `index.html`. As variáveis necessárias devem ser definidas na configuração do site antes do deploy.
+- **Docker:** o `Dockerfile` executa `npm ci` e o build em Node 20 Alpine; a imagem final usa Nginx Alpine para servir `dist/flashcards/browser`. O `docker-compose.yml` publica a aplicação na porta local `4200`.
 - **Nginx:** `nginx.conf` usa `index.html` como fallback para rotas do Angular.
 - **Kubernetes:** `kubernetes/deployment.yaml` contém exemplos de Deployment (uma réplica) e Service. A imagem está indicada como `flashcards-app:local`; deve existir no cluster local ou ser substituída pela imagem publicada.
 

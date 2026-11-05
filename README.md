@@ -2,6 +2,8 @@
 
 Aplicação Angular para estudar inglês com frases e palavras em contexto. A estrutura atual já inclui autenticação com Supabase, cadastro rápido de cartões, revisão por intervalo simples, busca e filtros, exportação/importação JSON e suporte PWA.
 
+Aplicação publicada: [https://gk-flashcard.netlify.app/](https://gk-flashcard.netlify.app/)
+
 ## Requisitos locais
 
 - Node.js 20 LTS recomendado
@@ -61,7 +63,7 @@ Em **Site configuration → Environment variables**, adicione:
 - `PRONUNCIATION_ASSESSMENT_ENABLED`: `false` por padrão; só use `true` depois de configurar a Edge Function e os segredos Azure
 - `TRANSLATION_ENABLED`: `false` por padrão; só use `true` depois de configurar a Edge Function e os segredos Google Cloud
 
-Mantenha o comando de build como `npm run build`. Após salvar as variáveis, faça um novo deploy para que sejam incluídas no build.
+Mantenha o comando de build como `npm run build` e o diretório de publicação como `dist/flashcards/browser` (já definido em `netlify.toml`). O Angular coloca os arquivos do navegador nessa subpasta; publicar apenas `dist/flashcards` resulta em página não encontrada. Após salvar as variáveis, faça um novo deploy para que sejam incluídas no build.
 
 Como o Angular roda no navegador, a URL e a **Publishable key** ficam acessíveis no app publicado; essa chave é pública por definição. Proteja os dados com RLS no Supabase. Nunca use `sb_secret_`, `service_role` ou a _Direct connection string_ nessas variáveis.
 
