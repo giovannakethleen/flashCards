@@ -345,6 +345,7 @@ app-dashboard {
   }
 
   .activity-day {
+    position: relative;
     display: grid;
     min-width: 0;
     width: 100%;
@@ -357,6 +358,23 @@ app-dashboard {
     color: #c9d1d9;
     font-size: 0.76rem;
     cursor: pointer;
+  }
+
+  .planned-marker {
+    position: absolute;
+    right: -0.15rem;
+    bottom: -0.15rem;
+    display: grid;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    place-items: center;
+    padding: 0 0.2rem;
+    border: 1px solid #0b1220;
+    border-radius: 999px;
+    background: #7c3aed;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 800;
   }
 
   button.activity-day:hover,
@@ -508,8 +526,122 @@ app-dashboard {
   .activity-note {
     margin: 0;
     color: #75849a;
-    font-size: 0.64rem;
+    font-size: 0.75rem;
     line-height: 1.45;
+  }
+
+  .planned-day-list {
+    display: grid;
+    gap: 0.55rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+  }
+
+  .planned-day-list h3 {
+    margin: 0;
+    color: #e2e8f0;
+    font-size: 0.95rem;
+  }
+
+  .planned-day-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    padding: 0.65rem;
+    border: 1px solid rgba(167, 139, 250, 0.22);
+    border-radius: 9px;
+    background: rgba(124, 58, 237, 0.08);
+  }
+
+  .planned-day-item.completed {
+    border-color: rgba(52, 211, 153, 0.2);
+    background: rgba(52, 211, 153, 0.06);
+  }
+
+  .planned-day-item strong,
+  .planned-day-item small {
+    display: block;
+  }
+
+  .planned-day-item strong {
+    color: #e2e8f0;
+    font-size: 0.9rem;
+  }
+
+  .planned-day-item small {
+    margin-top: 0.25rem;
+    color: #b6c4d6;
+    font-size: 0.78rem;
+  }
+
+  .complete-plan-button,
+  .view-plan-button,
+  .next-action-button {
+    min-height: 44px;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 9px;
+    background: rgba(56, 189, 248, 0.13);
+    color: #bae6fd;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .completed-plan-label {
+    color: #a7f3d0;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .view-plan-button {
+    width: fit-content;
+  }
+
+  .next-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0 0 1.6rem;
+    padding: 1.1rem 1.2rem;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    border-radius: 14px;
+    background: linear-gradient(120deg, rgba(14, 116, 144, 0.2), rgba(15, 23, 42, 0.78));
+  }
+
+  .next-action-eyebrow {
+    margin: 0 0 0.35rem;
+    color: #7dd3fc;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+  }
+
+  .next-action h2 {
+    margin: 0;
+    color: #f1f5f9;
+    font-size: 1.2rem;
+  }
+
+  .next-action-copy > p:not(.next-action-eyebrow) {
+    margin: 0.35rem 0 0;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+  }
+
+  .next-action-copy .today-plan-summary {
+    color: #c4b5fd;
+  }
+
+  .next-action-copy .today-plan-error {
+    color: #fecaca;
+  }
+
+  .next-action-button {
+    flex: 0 0 auto;
+    background: #0891b2;
+    color: #ecfeff;
   }
 
   .hero {
@@ -1057,6 +1189,15 @@ app-dashboard {
       flex-direction: column;
     }
 
+    .next-action {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .next-action-button {
+      width: 100%;
+    }
+
     .day-stats {
       justify-content: flex-start;
       gap: 0.75rem;
@@ -1117,7 +1258,7 @@ app-dashboard {
     }
 
     .activity-day {
-      font-size: 0.68rem;
+      font-size: 0.75rem;
     }
 
     .month-totals,

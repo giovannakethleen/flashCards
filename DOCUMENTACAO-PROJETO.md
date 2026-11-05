@@ -88,9 +88,11 @@ Os dados dos cartões e das atividades ficam no Supabase. Tradução automática
 
 - **Autenticação:** cadastro, entrada, saída e recuperação de senha via Supabase Auth.
 - **Cartões:** cadastro de frases em inglês e sua tradução, com campos de apoio como palavra em foco, categoria, origem e informação de áudio.
-- **Revisão:** cartões vencidos são apresentados para estudo; o resultado atualiza os contadores e a próxima data de revisão.
-- **Painel:** indicadores e calendário de atividade, com cartões adicionados, cartões distintos estudados e número de revisões por dia.
-- **Plano de estudos:** registro de atividades planejadas ou concluídas e visualização de revisões previstas.
+- **Revisão:** cartões vencidos são apresentados para estudo; o cartão revela a tradução ao toque, estima o tempo restante e informa quando cada resposta será revisada.
+- **Painel:** indicadores, uma chamada para a próxima revisão e calendário integrado às atividades planejadas e concluídas.
+- **Plano de estudos:** registro e conclusão direta das atividades, visualização de revisões previstas e atalho para criar cartões a partir do resumo.
+- **Coleção:** busca enquanto digita, filtros por tema, origem, nível e estado de revisão, com ações compactas para celular.
+- **Sugestões com IA:** página dedicada `Criar com IA` disponível no menu, também acessível pelos botões das atividades do plano. Gera flashcards a partir de um resumo fornecido pela pessoa; frente e tradução/resposta em português podem ser revisadas antes de salvar.
 - **Pronúncia:** reprodução de texto e gravação local para prática; quando habilitada, a avaliação automática usa uma Edge Function e Azure Speech.
 - **Tradução:** quando habilitada, uma frase em inglês pode ser enviada para tradução automática de rascunho para português brasileiro. O texto permanece editável antes de ser salvo.
 - **PWA:** manifesto, ícones e cache de recursos estáticos por meio do Angular Service Worker.
@@ -103,11 +105,13 @@ O front-end usa a Publishable key, que é pública por definição, e não deve 
 | Arquivo | Finalidade |
 |---|---|
 | `supabase/flashcards.sql` | Tabela `flashcards`, índices e política para cada usuário gerenciar os próprios cartões |
+| `supabase/flashcard-level.sql` | Migração que adiciona o nível opcional de inglês a instalações existentes |
 | `supabase/activity-calendar.sql` | Tabela de atividade, registro de criação/revisão e funções para o calendário |
 | `supabase/study-plan.sql` | Tabela e políticas das atividades do plano de estudos |
 | `supabase/translation-usage.sql` | Contadores de uso e função de reserva para limitar chamadas de tradução |
 | `supabase/functions/translate-card/index.ts` | Edge Function autenticada que controla limites e encaminha a solicitação de tradução |
 | `supabase/functions/pronunciation-assessment/index.ts` | Edge Function autenticada que valida o áudio e encaminha a avaliação de pronúncia |
+| `supabase/functions/generate-flashcards/index.ts` | Edge Function autenticada que solicita sugestões de flashcards ao Gemini |
 
 O SQL deve ser aplicado ao projeto Supabase antes de usar os recursos correspondentes. A configuração detalhada e os limites das integrações estão no [README.md](./README.md).
 

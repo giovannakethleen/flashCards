@@ -6,7 +6,7 @@ import { getSupabaseClient } from '../core/supabase';
 export type StudyActivityType =
   'study_lesson' | 'flashcard_review' | 'watch_video' | 'write_english' | 'conversation_class';
 
-export type StudyActivityStatus = 'planned' | 'completed';
+export type StudyActivityStatus = 'planned' | 'completed' | 'postponed' | 'skipped' | 'unrecorded';
 
 export interface StudyActivity {
   id: string;
@@ -15,7 +15,9 @@ export interface StudyActivity {
   starts_on: string;
   start_time: string | null;
   duration_minutes: number | null;
+  actual_duration_minutes: number | null;
   lesson_reference: string | null;
+  plan_name: string | null;
   status: StudyActivityStatus;
 }
 
@@ -57,7 +59,7 @@ export class StudyPlanService {
     const { data, error } = await client
       .from('study_plan_activities')
       .select(
-        'id, title, activity_type, starts_on, start_time, duration_minutes, lesson_reference, status',
+        'id, title, activity_type, starts_on, start_time, duration_minutes, actual_duration_minutes, lesson_reference, plan_name, status',
       )
       .eq('user_id', user.id)
       .gte('starts_on', startDate)
@@ -109,6 +111,62 @@ export class StudyPlanService {
     }
   }
 
+  async createMonthlyPlan(
+    planName: string,
+    startDate: string,
+    endDate: string,
+    activities: StudyActivityInput[],
+  ): Promise<boolean> {
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const { data: existing, error: existingError } = await client
+      .from('study_plan_activities')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('plan_name', planName)
+      .gte('starts_on', startDate)
+      .lte('starts_on', endDate)
+      .limit(1);
+
+    if (existingError) {
+      throw new Error(existingError.message || 'Não foi possível verificar o plano existente.');
+    }
+    if (existing?.length) {
+      return false;
+    }
+
+    const { error } = await client.from('study_plan_activities').insert(
+      activities.map((activity) => ({
+        ...activity,
+        user_id: user.id,
+        updated_at: new Date().toISOString(),
+      })),
+    );
+    if (error) {
+      throw new Error(error.message || 'Não foi possível criar o plano mensal.');
+    }
+
+    return true;
+  }
+
+  async deleteMonthlyPlan(planName: string, startDate: string, endDate: string): Promise<number> {
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const { count, error } = await client
+      .from('study_plan_activities')
+      .delete({ count: 'exact' })
+      .eq('user_id', user.id)
+      .eq('plan_name', planName)
+      .gte('starts_on', startDate)
+      .lte('starts_on', endDate);
+
+    if (error) {
+      throw new Error(error.message || 'Não foi possível excluir o plano mensal.');
+    }
+
+    return count ?? 0;
+  }
+
   async updateStatus(activityId: string, status: StudyActivityStatus): Promise<void> {
     const client = this.getClient();
     const user = this.getCurrentUser();
@@ -120,6 +178,20 @@ export class StudyPlanService {
 
     if (error) {
       throw new Error(error.message || 'Não foi possível atualizar o status da atividade.');
+    }
+  }
+
+  async deleteActivity(activityId: string): Promise<void> {
+    const client = this.getClient();
+    const user = this.getCurrentUser();
+    const { error } = await client
+      .from('study_plan_activities')
+      .delete()
+      .eq('id', activityId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      throw new Error(error.message || 'Não foi possível excluir a atividade.');
     }
   }
 }

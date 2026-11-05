@@ -21,6 +21,9 @@ import { SpeechService, type EnglishLocale } from '../core/speech.service';
           <div class="empty-state">
             <h1>Você está em dia!</h1>
             <p>Não há cartões pendentes para revisão neste momento.</p>
+            @if (feedbackMessage) {
+              <p class="review-feedback" role="status">{{ feedbackMessage }}</p>
+            }
             <div class="empty-actions">
               <button type="button" class="primary" (click)="startNewReview()">Nova revisão</button>
               <button type="button" class="secondary" (click)="goBack()">Voltar ao painel</button>
@@ -29,10 +32,22 @@ import { SpeechService, type EnglishLocale } from '../core/speech.service';
         } @else {
           <div class="header">
             <p class="eyebrow">Prática de hoje</p>
-            <span class="meta">{{ currentIndex + 1 }} / {{ cards.length }}</span>
+            <span class="meta">
+              {{ remainingCards }} {{ remainingCards === 1 ? 'cartão' : 'cartões' }} · cerca de
+              {{ estimatedMinutes }} min
+            </span>
           </div>
 
-          <h1>{{ currentCard.english_text }}</h1>
+          <button
+            type="button"
+            class="phrase-card"
+            (click)="toggleAnswer()"
+            [attr.aria-expanded]="showAnswer"
+            aria-label="Toque para revelar ou esconder a tradução"
+          >
+            <span class="phrase">{{ currentCard.english_text }}</span>
+            <span class="tap-hint">{{ showAnswer ? 'Toque para esconder' : 'Toque para revelar' }}</span>
+          </button>
 
           <div class="actions-row">
             <label class="voice-choice">
@@ -76,14 +91,35 @@ import { SpeechService, type EnglishLocale } from '../core/speech.service';
             </div>
           }
 
+          @if (feedbackMessage) {
+            <p class="review-feedback" role="status">{{ feedbackMessage }}</p>
+          }
+
+          <p class="rating-hint">
+            Sua resposta define quando este cartão volta para revisão.
+          </p>
           <div class="rating-row">
-            <button type="button" class="rating miss" (click)="rateCard('miss')">Errei</button>
-            <button type="button" class="rating hard" (click)="rateCard('hard')">Difícil</button>
-            <button type="button" class="rating easy" (click)="rateCard('easy')">Fácil</button>
-            <button type="button" class="rating remember" (click)="rateCard('remembered')">
-              Lembrei
+            <button type="button" class="rating miss" (click)="rateCard('miss')" [disabled]="isSaving">
+              <strong>Errei</strong><small>em 1 hora</small>
+            </button>
+            <button type="button" class="rating hard" (click)="rateCard('hard')" [disabled]="isSaving">
+              <strong>Difícil</strong><small>amanhã</small>
+            </button>
+            <button type="button" class="rating easy" (click)="rateCard('easy')" [disabled]="isSaving">
+              <strong>Fácil</strong><small>em 7 dias</small>
+            </button>
+            <button
+              type="button"
+              class="rating remember"
+              (click)="rateCard('remembered')"
+              [disabled]="isSaving"
+            >
+              <strong>Lembrei</strong><small>em 3 dias</small>
             </button>
           </div>
+          @if (errorMessage) {
+            <p class="review-feedback error" role="alert">{{ errorMessage }}</p>
+          }
         }
       </section>
     </main>
@@ -163,11 +199,30 @@ import { SpeechService, type EnglishLocale } from '../core/speech.service';
       font-weight: 700;
     }
 
-    h1 {
+    .phrase-card {
+      display: grid;
+      width: 100%;
+      gap: 0.75rem;
       margin: 1rem 0 1.25rem;
-      font-size: clamp(2rem, 4vw, 3rem);
-      line-height: 1.2;
+      padding: clamp(1.25rem, 4vw, 2rem);
+      border: 1px solid rgba(96, 165, 250, 0.28);
+      border-radius: 16px;
+      background: rgba(96, 165, 250, 0.06);
       color: #e5e7eb;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .phrase {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 750;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .tap-hint {
+      color: #a5b4c8;
+      font-size: 0.9rem;
     }
 
     .actions-row {
@@ -242,7 +297,37 @@ import { SpeechService, type EnglishLocale } from '../core/speech.service';
     }
 
     .rating {
+      display: grid;
+      min-height: 62px;
+      justify-items: center;
+      gap: 0.2rem;
       color: white;
+    }
+
+    .rating small {
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .rating:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+
+    .rating-hint {
+      margin: 0 0 0.65rem;
+      color: #b6c4d6;
+      font-size: 0.95rem;
+    }
+
+    .review-feedback {
+      margin: 0 0 0.85rem;
+      color: #a7f3d0;
+      font-size: 1rem;
+    }
+
+    .review-feedback.error {
+      color: #fecaca;
     }
 
     .miss {
@@ -279,6 +364,14 @@ import { SpeechService, type EnglishLocale } from '../core/speech.service';
       .rating-row {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+
+      .card {
+        padding: 1.2rem;
+      }
+
+      .meta {
+        font-size: 0.9rem;
+      }
     }
   `,
   imports: [FormsModule],
@@ -292,6 +385,8 @@ export class ReviewComponent implements OnInit {
   voiceLocale: EnglishLocale = 'en-US';
   speechMessage = '';
   errorMessage = '';
+  feedbackMessage = '';
+  isSaving = false;
 
   constructor(
     private readonly cardService: CardService,
@@ -306,6 +401,7 @@ export class ReviewComponent implements OnInit {
   async loadCards() {
     this.isLoading = true;
     this.errorMessage = '';
+    this.feedbackMessage = '';
 
     try {
       this.cards = await this.cardService.getDueCards();
@@ -325,6 +421,7 @@ export class ReviewComponent implements OnInit {
   async startNewReview() {
     this.isLoading = true;
     this.errorMessage = '';
+    this.feedbackMessage = '';
     this.showAnswer = false;
 
     try {
@@ -362,23 +459,42 @@ export class ReviewComponent implements OnInit {
     this.showAnswer = !this.showAnswer;
   }
 
+  get remainingCards() {
+    return this.cards.length;
+  }
+
+  get estimatedMinutes() {
+    return this.remainingCards === 0 ? 0 : Math.max(1, Math.ceil(this.remainingCards * 0.6));
+  }
+
   async rateCard(result: 'miss' | 'hard' | 'remembered' | 'easy') {
-    if (!this.currentCard) {
+    if (!this.currentCard || this.isSaving) {
       return;
     }
 
-    await this.cardService.updateReview(this.currentCard.id, result);
-    this.showAnswer = false;
+    const messages = {
+      miss: 'Você verá este cartão novamente em cerca de 1 hora.',
+      hard: 'Você verá este cartão novamente amanhã.',
+      remembered: 'Você verá este cartão novamente em 3 dias.',
+      easy: 'Você verá este cartão novamente em 7 dias.',
+    };
+    const reviewedCard = this.currentCard;
+    this.isSaving = true;
+    this.errorMessage = '';
 
-    this.cards = this.cards.filter((card) => card.id !== this.currentCard?.id);
-    this.currentCard = this.cards[this.currentIndex] ?? null;
-
-    if (!this.currentCard && this.cards.length === 0) {
-      this.currentCard = null;
-    }
-
-    if (this.currentCard) {
+    try {
+      await this.cardService.updateReview(reviewedCard.id, result);
+      this.feedbackMessage = messages[result];
+      this.showAnswer = false;
+      this.cards = this.cards.filter((card) => card.id !== reviewedCard.id);
+      this.currentCard = this.cards[0] ?? null;
       this.currentIndex = 0;
+    } catch (error) {
+      this.errorMessage =
+        error instanceof Error ? error.message : 'Não foi possível registrar sua resposta.';
+    } finally {
+      this.isSaving = false;
+      this.changeDetector.markForCheck();
     }
   }
 

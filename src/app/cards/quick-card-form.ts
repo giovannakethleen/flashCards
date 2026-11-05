@@ -28,6 +28,7 @@ import { TranslationService } from '../core/translation.service';
           <span>Frase em inglês *</span>
           <textarea
             [(ngModel)]="englishText"
+            required
             rows="4"
             placeholder="She has been studying a lot."
           ></textarea>
@@ -53,17 +54,10 @@ import { TranslationService } from '../core/translation.service';
         }
 
         <label>
-          <span>Voz de áudio</span>
-          <select [(ngModel)]="voiceLocale">
-            <option value="en-US">Inglês americano</option>
-            <option value="en-GB">Inglês britânico</option>
-          </select>
-        </label>
-
-        <label>
           <span>Tradução em português *</span>
           <textarea
             [(ngModel)]="portugueseText"
+            required
             rows="4"
             placeholder="Ela tem estudado bastante."
           ></textarea>
@@ -74,7 +68,7 @@ import { TranslationService } from '../core/translation.service';
           (click)="translateToPortuguese()"
           [disabled]="isTranslating || !translation.enabled"
         >
-          {{ isTranslating ? 'Traduzindo...' : 'Traduzir para português' }}
+          {{ isTranslating ? 'Traduzindo...' : 'Traduzir' }}
         </button>
         @if (translationMessage) {
           <p class="message" [class.error]="translationError" role="status">
@@ -86,38 +80,64 @@ import { TranslationService } from '../core/translation.service';
           </p>
         }
 
-        <div class="grid">
-          <label>
-            <span>Palavra ou expressão em foco</span>
-            <input [(ngModel)]="focusWord" type="text" placeholder="study" />
-          </label>
-
-          <label>
-            <span>Tema / categoria</span>
-            <input [(ngModel)]="category" type="text" placeholder="work / travel / food" />
-          </label>
-        </div>
-
-        <div class="grid">
-          <label>
-            <span>Origem da frase</span>
-            <input [(ngModel)]="source" type="text" placeholder="Livro / podcast / app" />
-          </label>
-
-          <label>
-            <span>Informações para áudio</span>
-            <input [(ngModel)]="audioInfo" type="text" placeholder="Pronúncia ou URL" />
-          </label>
-        </div>
+        <details class="optional-details">
+          <summary>Detalhes opcionais</summary>
+          <div class="grid">
+            <label>
+              <span>Palavra ou expressão em foco</span>
+              <input [(ngModel)]="focusWord" type="text" placeholder="study" />
+            </label>
+            <label>
+              <span>Tema</span>
+              <input [(ngModel)]="category" type="text" placeholder="Trabalho, viagem, comida..." />
+            </label>
+          </div>
+          <div class="grid">
+            <label>
+              <span>Origem da frase</span>
+              <input [(ngModel)]="source" type="text" placeholder="Livro, podcast, aula..." />
+            </label>
+            <label>
+              <span>Nível de inglês</span>
+              <select [(ngModel)]="level">
+                <option value="">Não informado</option>
+                <option value="beginner">Iniciante</option>
+                <option value="intermediate">Intermediário</option>
+                <option value="advanced">Avançado</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid">
+            <label>
+              <span>Informações para áudio</span>
+              <input [(ngModel)]="audioInfo" type="text" placeholder="Pronúncia ou URL" />
+            </label>
+            <label>
+              <span>Voz de áudio</span>
+              <select [(ngModel)]="voiceLocale">
+                <option value="en-US">Inglês americano</option>
+                <option value="en-GB">Inglês britânico</option>
+              </select>
+            </label>
+          </div>
+        </details>
 
         <div class="actions">
           <button
             type="button"
             class="primary"
-            (click)="saveCard()"
+            (click)="saveCard(false)"
             [disabled]="isSubmitting || isTranslating"
           >
             {{ isSubmitting ? 'Salvando...' : 'Salvar cartão' }}
+          </button>
+          <button
+            type="button"
+            class="secondary"
+            (click)="saveCard(true)"
+            [disabled]="isSubmitting || isTranslating"
+          >
+            Salvar e adicionar outra
           </button>
         </div>
       </section>
@@ -231,7 +251,23 @@ import { TranslationService } from '../core/translation.service';
     .actions {
       margin-top: 1.25rem;
       display: flex;
-      justify-content: flex-end;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .optional-details {
+      margin-top: 1.25rem;
+      padding: 0.9rem 1rem;
+      border: 1px solid rgba(96, 165, 250, 0.2);
+      border-radius: 12px;
+      background: rgba(2, 6, 23, 0.22);
+    }
+
+    .optional-details summary {
+      color: #bfdbfe;
+      font-weight: 700;
+      cursor: pointer;
     }
 
     button {
@@ -279,6 +315,10 @@ import { TranslationService } from '../core/translation.service';
       font-weight: 600;
     }
 
+    .actions button {
+      min-height: 46px;
+    }
+
     .primary:disabled {
       opacity: 0.7;
       cursor: wait;
@@ -320,6 +360,7 @@ export class QuickCardFormComponent {
   category = '';
   source = '';
   audioInfo = '';
+  level = '';
   voiceLocale = 'en-US';
   speechMessage = '';
   errorMessage = '';
@@ -405,7 +446,7 @@ export class QuickCardFormComponent {
     }
   }
 
-  async saveCard() {
+  async saveCard(addAnother = false) {
     this.errorMessage = '';
     this.successMessage = '';
 
@@ -424,9 +465,12 @@ export class QuickCardFormComponent {
         category: this.category,
         source: this.source,
         audio_info: this.audioInfo,
+        level: this.level || null,
       });
 
-      this.successMessage = 'Cartão salvo com sucesso.';
+      this.successMessage = addAnother
+        ? 'Cartão salvo. Você já pode adicionar outra frase.'
+        : 'Cartão salvo com sucesso.';
       this.englishText = '';
       this.portugueseText = '';
       this.translationMessage = '';
@@ -435,6 +479,7 @@ export class QuickCardFormComponent {
       this.category = '';
       this.source = '';
       this.audioInfo = '';
+      this.level = '';
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível salvar o cartão.';
       this.errorMessage = message;

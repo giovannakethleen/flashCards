@@ -10,6 +10,7 @@ export interface FlashcardInput {
   category?: string | null;
   source?: string | null;
   audio_info?: string | null;
+  level?: string | null;
   next_review_at?: string;
   review_count?: number;
   mistake_count?: number;
@@ -76,6 +77,7 @@ export class CardService {
       category: input.category?.trim() || null,
       source: input.source?.trim() || null,
       audio_info: input.audio_info?.trim() || null,
+      level: input.level?.trim() || null,
       next_review_at: input.next_review_at ?? new Date().toISOString(),
       review_count: input.review_count ?? 0,
       mistake_count: input.mistake_count ?? 0,
@@ -108,6 +110,7 @@ export class CardService {
       category: input.category?.trim() || null,
       source: input.source?.trim() || null,
       audio_info: input.audio_info?.trim() || null,
+      level: input.level?.trim() || null,
       next_review_at: input.next_review_at ?? createdAt,
       review_count: input.review_count ?? 0,
       mistake_count: input.mistake_count ?? 0,
@@ -132,8 +135,7 @@ export class CardService {
       .select('*')
       .eq('user_id', user.id)
       .lte('next_review_at', now)
-      .order('next_review_at', { ascending: true })
-      .limit(20);
+      .order('next_review_at', { ascending: true });
 
     if (error) {
       throw new Error(error.message || 'Não foi possível carregar os cartões para revisão.');
@@ -277,6 +279,7 @@ export class CardService {
       category: input.category?.trim() || null,
       source: input.source?.trim() || null,
       audio_info: input.audio_info?.trim() || null,
+      level: input.level?.trim() || null,
     };
 
     const { error } = await client
@@ -308,6 +311,7 @@ export class CardService {
         category: item.category ?? '',
         source: item.source ?? '',
         audio_info: item.audio_info ?? '',
+        level: item.level ?? '',
         next_review_at: item.next_review_at,
         review_count: item.review_count ?? 0,
         mistake_count: item.mistake_count ?? 0,
@@ -337,9 +341,13 @@ export class CardService {
       const englishText = typeof item.english_text === 'string' ? item.english_text.trim() : '';
       const portugueseText =
         typeof item.portuguese_text === 'string' ? item.portuguese_text.trim() : '';
+      const level = typeof item.level === 'string' ? item.level.trim() : null;
 
       if (!englishText || !portugueseText) {
         throw new Error(`Cartão ${index + 1} está sem frase ou tradução válidas.`);
+      }
+      if (level && !['beginner', 'intermediate', 'advanced'].includes(level)) {
+        throw new Error(`Cartão ${index + 1} tem um nível de inglês inválido.`);
       }
 
       return {
@@ -350,6 +358,7 @@ export class CardService {
         category: typeof item.category === 'string' ? item.category.trim() : null,
         source: typeof item.source === 'string' ? item.source.trim() : null,
         audio_info: typeof item.audio_info === 'string' ? item.audio_info.trim() : null,
+        level,
         next_review_at:
           typeof item.next_review_at === 'string' ? item.next_review_at : new Date().toISOString(),
         review_count: Number(item.review_count ?? 0),

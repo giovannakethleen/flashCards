@@ -28,7 +28,11 @@ function isSuggestionType(value: unknown): value is FlashcardSuggestionType {
 
 @Injectable({ providedIn: 'root' })
 export class FlashcardGenerationService {
-  async generate(summary: string, level: string, source: string): Promise<FlashcardGenerationResult> {
+  async generate(
+    summary: string,
+    level: string,
+    source: string,
+  ): Promise<FlashcardGenerationResult> {
     const client = getSupabaseClient();
     if (!client) {
       throw new Error('A configuração do Supabase não está disponível.');
@@ -79,7 +83,9 @@ export class FlashcardGenerationService {
 
     if (data['needsMoreContext']) {
       if (data['cards'].length !== 0 || !data['message'].trim()) {
-        throw new Error('O serviço retornou sugestões em formato inválido. Nenhum cartão foi salvo.');
+        throw new Error(
+          'O serviço retornou sugestões em formato inválido. Nenhum cartão foi salvo.',
+        );
       }
 
       return {
@@ -107,7 +113,14 @@ export class FlashcardGenerationService {
       const front = card['front'].trim();
       const back = card['back'].trim();
       const focus = card['focus'].trim();
-      if (!front || front.length > 500 || !back || back.length > 500 || !focus || focus.length > 120) {
+      if (
+        !front ||
+        front.length > 500 ||
+        !back ||
+        back.length > 500 ||
+        !focus ||
+        focus.length > 120
+      ) {
         throw new Error('O serviço retornou sugestões incompletas. Nenhum cartão foi salvo.');
       }
 

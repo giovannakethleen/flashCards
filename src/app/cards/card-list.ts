@@ -20,18 +20,45 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
         </div>
 
         <div class="toolbar">
-          <input [(ngModel)]="searchTerm" type="text" placeholder="Buscar frase ou tradução" />
-          <select [(ngModel)]="categoryFilter" (change)="loadCards()">
+          <input
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="applyFilters()"
+            type="search"
+            placeholder="Buscar frase, tradução ou origem"
+            aria-label="Buscar na coleção"
+          />
+          <select [(ngModel)]="categoryFilter" (ngModelChange)="applyFilters()" aria-label="Tema">
             <option value="">Todos os temas</option>
             @for (category of categories; track category) {
-              <option [value]="category">{{ category }}</option>
+              <option [value]="category">{{ categoryLabel(category) }}</option>
             }
+          </select>
+          <select [(ngModel)]="sourceFilter" (ngModelChange)="applyFilters()" aria-label="Origem">
+            <option value="">Todas as origens</option>
+            @for (source of sources; track source) {
+              <option [value]="source">{{ source }}</option>
+            }
+          </select>
+          <select [(ngModel)]="levelFilter" (ngModelChange)="applyFilters()" aria-label="Nível">
+            <option value="">Todos os níveis</option>
+            <option value="beginner">Iniciante</option>
+            <option value="intermediate">Intermediário</option>
+            <option value="advanced">Avançado</option>
+          </select>
+          <select
+            [(ngModel)]="reviewFilter"
+            (ngModelChange)="applyFilters()"
+            aria-label="Estado de revisão"
+          >
+            <option value="">Todos os estados</option>
+            <option value="due">Precisa de revisão</option>
+            <option value="scheduled">Agendado</option>
+            <option value="learned">Aprendido</option>
           </select>
           <select [(ngModel)]="voiceLocale" aria-label="Voz em inglês">
             <option value="en-US">Voz EUA</option>
             <option value="en-GB">Voz Reino Unido</option>
           </select>
-          <button type="button" class="primary" (click)="loadCards()">Buscar</button>
         </div>
 
         @if (speechMessage) {
@@ -84,6 +111,19 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
                       <span>Tema</span>
                       <input [(ngModel)]="draftCategory" type="text" />
                     </label>
+                    <label>
+                      <span>Origem</span>
+                      <input [(ngModel)]="draftSource" type="text" />
+                    </label>
+                    <label>
+                      <span>Nível</span>
+                      <select [(ngModel)]="draftLevel">
+                        <option value="">Não informado</option>
+                        <option value="beginner">Iniciante</option>
+                        <option value="intermediate">Intermediário</option>
+                        <option value="advanced">Avançado</option>
+                      </select>
+                    </label>
                     <div class="editor-actions">
                       <button
                         type="button"
@@ -117,11 +157,20 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
                       }
                     </div>
                     <div class="item-meta">
-                      <span>{{ card.category || 'Sem tema' }}</span>
-                      <span>{{ card.next_review_at | date: 'dd/MM/yyyy' }}</span>
+                      <span>{{ categoryLabel(card.category) }}</span>
+                      @if (card.source) {
+                        <span>Origem: {{ card.source }}</span>
+                      }
+                      @if (card.level) {
+                        <span>{{ levelLabel(card.level) }}</span>
+                      }
+                      <span class="review-state" [class]="'review-state ' + reviewState(card)">
+                        {{ reviewStateLabel(card) }}
+                      </span>
+                      <span>Próxima revisão: {{ card.next_review_at | date: 'dd/MM/yyyy' }}</span>
                     </div>
                   </div>
-                  <div class="item-actions">
+                  <div class="item-actions desktop-actions">
                     <button
                       type="button"
                       class="secondary"
@@ -138,6 +187,25 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
                       Excluir
                     </button>
                   </div>
+                  <details class="mobile-action-menu">
+                    <summary>Ações do cartão</summary>
+                    <div class="mobile-action-list">
+                      <button
+                        type="button"
+                        class="secondary"
+                        (click)="speakEnglish(card.english_text)"
+                        [disabled]="!speech.isSupported"
+                      >
+                        Ouvir inglês
+                      </button>
+                      <button type="button" class="secondary" (click)="startEdit(card)">
+                        Editar
+                      </button>
+                      <button type="button" class="danger" (click)="deleteCard(card.id)">
+                        Excluir
+                      </button>
+                    </div>
+                  </details>
                   @defer (on interaction) {
                     <app-pronunciation-practice
                       [referenceText]="card.english_text"
@@ -233,7 +301,7 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
       margin-top: 1.5rem;
       display: grid;
       min-width: 0;
-      grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr) minmax(120px, 1fr) auto;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 0.75rem;
     }
 
@@ -248,6 +316,10 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
       background: rgba(15, 23, 42, 0.7);
       color: #e5e7eb;
       font: inherit;
+    }
+
+    .toolbar input {
+      grid-column: span 2;
     }
 
     textarea {
@@ -342,6 +414,26 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
       text-align: right;
     }
 
+    .review-state {
+      width: fit-content;
+      align-self: flex-end;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      color: #bae6fd;
+      font-weight: 700;
+    }
+
+    .review-state.due {
+      background: rgba(248, 113, 113, 0.14);
+      color: #fecaca;
+    }
+
+    .review-state.learned {
+      background: rgba(52, 211, 153, 0.12);
+      color: #a7f3d0;
+    }
+
     .item-actions,
     .editor-actions {
       display: flex;
@@ -366,6 +458,10 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
       font-size: 0.82rem;
     }
 
+    .mobile-action-menu {
+      display: none;
+    }
+
     .status {
       margin-top: 1rem;
       color: #cbd5e1;
@@ -378,6 +474,10 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
     @media (max-width: 640px) {
       .toolbar {
         grid-template-columns: 1fr;
+      }
+
+      .toolbar input {
+        grid-column: auto;
       }
 
       .collection-shell {
@@ -394,6 +494,37 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
 
       .item-meta {
         text-align: left;
+        align-items: flex-start;
+      }
+
+      .review-state {
+        align-self: flex-start;
+      }
+
+      .desktop-actions {
+        display: none;
+      }
+
+      .mobile-action-menu {
+        display: block;
+        margin-top: 0.7rem;
+      }
+
+      .mobile-action-menu summary {
+        width: fit-content;
+        min-height: 44px;
+        padding: 0.7rem 0.85rem;
+        border: 1px solid rgba(96, 165, 250, 0.25);
+        border-radius: 10px;
+        color: #dbeafe;
+        cursor: pointer;
+      }
+
+      .mobile-action-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding-top: 0.55rem;
       }
     }
   `,
@@ -401,12 +532,19 @@ import { PronunciationPracticeComponent } from './pronunciation-practice';
 export class CardListComponent implements OnInit {
   cards: FlashcardRecord[] = [];
   categories: string[] = [];
+  sources: string[] = [];
+  private allCards: FlashcardRecord[] = [];
   searchTerm = '';
   categoryFilter = '';
+  sourceFilter = '';
+  levelFilter = '';
+  reviewFilter = '';
   editingId: string | null = null;
   draftEnglish = '';
   draftPortuguese = '';
   draftCategory = '';
+  draftSource = '';
+  draftLevel = '';
   isLoading = true;
   voiceLocale: EnglishLocale = 'en-US';
   speechMessage = '';
@@ -446,13 +584,14 @@ export class CardListComponent implements OnInit {
     this.errorMessage = '';
 
     try {
-      this.cards = await this.cardService.listCards({
-        search: this.searchTerm,
-        category: this.categoryFilter,
-      });
+      this.allCards = await this.cardService.listCards();
       this.categories = [
-        ...new Set(this.cards.map((card) => card.category).filter(Boolean)),
+        ...new Set(this.allCards.map((card) => card.category).filter(Boolean)),
       ] as string[];
+      this.sources = [
+        ...new Set(this.allCards.map((card) => card.source).filter(Boolean)),
+      ] as string[];
+      this.applyFilters();
     } catch (error) {
       this.errorMessage =
         error instanceof Error ? error.message : 'Não foi possível carregar a coleção.';
@@ -462,11 +601,64 @@ export class CardListComponent implements OnInit {
     }
   }
 
+  applyFilters() {
+    const search = this.searchTerm.trim().toLocaleLowerCase();
+    this.cards = this.allCards.filter((card) => {
+      const matchesSearch =
+        !search ||
+        [card.english_text, card.portuguese_text, card.source ?? '']
+          .some((value) => value.toLocaleLowerCase().includes(search));
+      const matchesCategory = !this.categoryFilter || card.category === this.categoryFilter;
+      const matchesSource = !this.sourceFilter || card.source === this.sourceFilter;
+      const matchesLevel = !this.levelFilter || card.level === this.levelFilter;
+      const matchesReview = !this.reviewFilter || this.reviewState(card) === this.reviewFilter;
+      return matchesSearch && matchesCategory && matchesSource && matchesLevel && matchesReview;
+    });
+  }
+
+  reviewState(card: FlashcardRecord): 'due' | 'scheduled' | 'learned' {
+    if (new Date(card.next_review_at).getTime() <= Date.now()) {
+      return 'due';
+    }
+    return (card.review_count ?? 0) >= 5 ? 'learned' : 'scheduled';
+  }
+
+  reviewStateLabel(card: FlashcardRecord) {
+    const labels = { due: 'Vencido', scheduled: 'Agendado', learned: 'Aprendido' };
+    return labels[this.reviewState(card)];
+  }
+
+  categoryLabel(category: string | null | undefined) {
+    if (!category) {
+      return 'Sem tema';
+    }
+    const labels: Record<string, string> = {
+      vocabulary: 'Vocabulário',
+      sentence: 'Frase',
+      cloze: 'Lacuna',
+      travel: 'Viagem',
+      work: 'Trabalho',
+      food: 'Comida',
+    };
+    return labels[category.toLocaleLowerCase()] ?? category;
+  }
+
+  levelLabel(level: string) {
+    const labels: Record<string, string> = {
+      beginner: 'Iniciante',
+      intermediate: 'Intermediário',
+      advanced: 'Avançado',
+    };
+    return labels[level] ?? level;
+  }
+
   startEdit(card: FlashcardRecord) {
     this.editingId = card.id;
     this.draftEnglish = card.english_text;
     this.draftPortuguese = card.portuguese_text;
     this.draftCategory = card.category ?? '';
+    this.draftSource = card.source ?? '';
+    this.draftLevel = card.level ?? '';
     this.translationMessage = '';
     this.translationError = false;
   }
@@ -525,6 +717,8 @@ export class CardListComponent implements OnInit {
       english_text: this.draftEnglish,
       portuguese_text: this.draftPortuguese,
       category: this.draftCategory,
+      source: this.draftSource,
+      level: this.draftLevel,
     });
 
     this.editingId = null;

@@ -14,6 +14,16 @@ import { AuthService } from './auth.service';
           <img src="icons/icon-512x512.png" alt="" />
           <span>FlashCards</span>
         </a>
+        <button
+          type="button"
+          class="mobile-menu-toggle"
+          (click)="toggleMobileMenu()"
+          [attr.aria-expanded]="mobileMenuOpen"
+          aria-controls="primary-navigation"
+          [attr.aria-label]="mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'"
+        >
+          {{ mobileMenuOpen ? 'Fechar' : 'Menu' }}
+        </button>
         <div class="topbar-center">
           <span class="online-dot"></span>
           <span>SEU ESPAÇO DE INGLÊS</span>
@@ -25,32 +35,37 @@ import { AuthService } from './auth.service';
         </div>
       </header>
 
-      <aside class="sidebar">
-        <nav class="navigation" aria-label="Menu principal">
+      <aside class="sidebar" [class.open]="mobileMenuOpen">
+        <nav id="primary-navigation" class="navigation" aria-label="Menu principal">
           <span class="nav-label">MENU</span>
           <a
             class="nav-link"
             routerLink="/dashboard"
             routerLinkActive="active"
             [routerLinkActiveOptions]="{ exact: true }"
+            (click)="closeMobileMenu()"
           >
             <span aria-hidden="true">⌂</span> Início
           </a>
-          <a class="nav-link" routerLink="/review" routerLinkActive="active">
+          <a class="nav-link" routerLink="/review" routerLinkActive="active" (click)="closeMobileMenu()">
             <span aria-hidden="true">◷</span> Estudar
           </a>
-          <a class="nav-link" routerLink="/study-plan" routerLinkActive="active">
+          <a class="nav-link" routerLink="/study-plan" routerLinkActive="active" (click)="closeMobileMenu()">
             <span aria-hidden="true">▦</span> Meu plano
+          </a>
+          <a class="nav-link" routerLink="/generate-cards" routerLinkActive="active" (click)="closeMobileMenu()">
+            <span aria-hidden="true">✦</span> Criar com IA
           </a>
           <a
             class="nav-link"
             routerLink="/cards"
             routerLinkActive="active"
             [routerLinkActiveOptions]="{ exact: true }"
+            (click)="closeMobileMenu()"
           >
             <span aria-hidden="true">▤</span> Minha coleção
           </a>
-          <a class="nav-link" routerLink="/cards/new" routerLinkActive="active">
+          <a class="nav-link" routerLink="/cards/new" routerLinkActive="active" (click)="closeMobileMenu()">
             <span aria-hidden="true">＋</span> Adicionar frase
           </a>
         </nav>
@@ -184,6 +199,17 @@ import { AuthService } from './auth.service';
       font-weight: 700;
     }
 
+    .mobile-menu-toggle {
+      display: none;
+      min-height: 44px;
+      padding: 0.55rem 0.8rem;
+      border: 1px solid rgba(96, 165, 250, 0.25);
+      border-radius: 9px;
+      background: rgba(96, 165, 250, 0.1);
+      color: #dbeafe;
+      font-weight: 700;
+    }
+
     .logout-button:hover {
       border-color: rgba(56, 189, 248, 0.52);
       color: #bae6fd;
@@ -286,6 +312,12 @@ import { AuthService } from './auth.service';
         padding: 0 1rem;
       }
 
+      .mobile-menu-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
       .topbar-center {
         display: none;
       }
@@ -298,18 +330,21 @@ import { AuthService } from './auth.service';
         position: sticky;
         z-index: 4;
         top: 62px;
-        display: block;
+        display: none;
         height: auto;
-        padding: 0.45rem 0.6rem;
+        padding: 0.5rem 0.75rem;
         border-right: 0;
         border-bottom: 1px solid rgba(148, 163, 184, 0.12);
         background: rgba(8, 15, 29, 0.96);
       }
 
+      .sidebar.open {
+        display: block;
+      }
+
       .navigation {
-        display: flex;
-        justify-content: center;
-        gap: 0.25rem;
+        display: grid;
+        gap: 0.35rem;
       }
 
       .nav-label {
@@ -317,10 +352,11 @@ import { AuthService } from './auth.service';
       }
 
       .nav-link {
-        justify-content: center;
-        width: auto;
-        padding: 0.55rem 0.65rem;
-        font-size: 0.72rem;
+        min-height: 46px;
+        justify-content: flex-start;
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        font-size: 0.85rem;
         white-space: nowrap;
       }
     }
@@ -340,38 +376,15 @@ import { AuthService } from './auth.service';
         font-size: 0.69rem;
       }
 
-      .navigation {
-        justify-content: space-between;
-        min-width: 0;
-        flex-wrap: wrap;
-      }
-
-      .nav-link {
-        flex: 0 0 auto;
-        gap: 0.35rem;
-        padding-inline: 0.4rem;
-        font-size: 0.65rem;
-      }
-
-      .nav-link span {
-        width: auto;
-        font-size: 0.9rem;
-      }
-    }
-
-    @media (max-width: 360px) {
-      .navigation {
-        justify-content: center;
-      }
-
-      .nav-link {
-        flex: 1 1 calc(50% - 0.25rem);
+      .mobile-menu-toggle {
+        font-size: 0.75rem;
       }
     }
   `,
 })
 export class WorkspaceShellComponent {
   signOutError = '';
+  mobileMenuOpen = false;
 
   constructor(
     public readonly auth: AuthService,
@@ -381,6 +394,14 @@ export class WorkspaceShellComponent {
   get userInitial() {
     const email = this.auth.currentUser()?.email;
     return email?.charAt(0).toUpperCase() ?? '?';
+  }
+
+  toggleMobileMenu() {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
+
+  closeMobileMenu() {
+    this.mobileMenuOpen = false;
   }
 
   async signOut() {

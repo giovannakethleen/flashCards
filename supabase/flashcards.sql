@@ -7,6 +7,7 @@ create table if not exists public.flashcards (
   category text,
   source text,
   audio_info text,
+  level text check (level is null or level in ('beginner', 'intermediate', 'advanced')),
   next_review_at timestamptz not null default now(),
   review_count integer not null default 0,
   mistake_count integer not null default 0,

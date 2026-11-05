@@ -87,11 +87,17 @@ O painel também usa um calendário de atividade. Depois de criar a tabela `flas
 
 Essa migração registra novas adições automaticamente, preenche a data de criação dos cartões que ainda existem e passa a registrar cada revisão junto com a atualização do cartão. Ela não consegue recuperar revisões antigas por dia, pois esses eventos não eram armazenados. O calendário mostra cartões adicionados, cartões distintos estudados e número de tentativas de revisão por dia.
 
+O cadastro também pode guardar o nível de inglês para filtrar a coleção. Em uma instalação nova, a coluna já é criada por `supabase/flashcards.sql`; se a tabela já existir, aplique uma vez `supabase/flashcard-level.sql`.
+
 Para habilitar **Meu plano de estudos**, aplique também `supabase/study-plan.sql`. A tela permite planejar atividades, acompanhar as revisões previstas dos flashcards e registrar conclusão. As atividades são protegidas por RLS e associadas à conta autenticada.
+
+O botão **Criar plano mensal** gera atividades separadas do modelo **A1 — Level 2** para o mês escolhido, incluindo duas lições de 30 minutos na maioria dos dias úteis, revisões e as atividades temáticas do cronograma. A meta diária de 3h a 3h30 é apenas orientativa. Cada atividade pode ser editada, adiada, marcada como concluída/não realizada ou removida; o tempo real é opcional. Para meses já iniciados, as datas anteriores ficam no calendário como **Ainda não registrada** até a pessoa atualizar o status.
+
+Se `study_plan_activities` já existe no Supabase, aplique uma vez `supabase/study-plan-monthly-template.sql` para habilitar o nome do plano, o tempo real, os novos status e a exclusão de atividades. Em instalações novas, basta usar a versão atualizada de `supabase/study-plan.sql`.
 
 ### Sugestões de flashcards com Gemini (opcional)
 
-Ao concluir uma atividade do tipo **Estudar unidade ou lição**, é possível colar um resumo revisado e pedir de 3 a 5 sugestões. Somente o resumo e o nível de inglês escolhido são enviados, e apenas após tocar em **Gerar cards com Gemini**. As sugestões aparecem como rascunhos editáveis: a pessoa pode selecionar, excluir ou corrigir cada uma; somente os rascunhos selecionados são salvos no Supabase. A conclusão da lição e o cadastro manual continuam disponíveis se a geração falhar ou não for usada.
+A página **Criar com IA** permite colar um resumo revisado de qualquer atividade de estudo e pedir de 3 a 5 sugestões; ela também pode ser aberta pelo botão de geração em cada atividade do plano, que preenche a origem automaticamente. A IA preenche as traduções ou respostas em português; elas podem ser revisadas e editadas antes de salvar. Somente o resumo e o nível de inglês escolhido são enviados, e apenas após solicitar a geração. As sugestões aparecem como rascunhos editáveis: a pessoa pode selecionar, excluir ou corrigir cada uma; somente os rascunhos selecionados são salvos no Supabase. A conclusão da atividade e o cadastro manual continuam disponíveis se a geração falhar ou não for usada.
 
 O texto é processado pelo Gemini. Na camada gratuita, o Google informa que o conteúdo pode ser usado para melhorar seus produtos. Não envie dados pessoais ou conteúdo que não queira compartilhar. O modelo fixo é `gemini-3.5-flash-lite`, listado na camada gratuita na documentação consultada em 4 de novembro de 2026. Limites variam por projeto e podem mudar; ao receber um limite excedido, a aplicação pede para tentar novamente depois e não muda para um modelo pago nem ativa faturamento automaticamente.
 
@@ -109,7 +115,7 @@ Para publicar a função autenticada:
    supabase secrets set GEMINI_API_KEY=...
    ```
 
-   Nunca coloque a chave no Angular, `.env`, Netlify ou Git. A função valida a sessão, aceita apenas JSON com resumo de até 5.000 caracteres e nível permitido, e valida as sugestões recebidas antes de devolvê-las. Nenhuma sugestão é persistida pela função.
+   Use um projeto Gemini na camada gratuita sem vincular faturamento; a configuração do projeto Google determina a camada e os limites ativos. Nunca coloque a chave no Angular, `.env`, Netlify ou Git. A função valida a sessão, aceita apenas JSON com resumo de até 5.000 caracteres e nível permitido, e valida as sugestões recebidas antes de devolvê-las. Nenhuma sugestão é persistida pela função.
 
 Referências oficiais consultadas em 4 de novembro de 2026: [preços e camada gratuita](https://ai.google.dev/gemini-api/docs/pricing), [modelo Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite), [limites de uso](https://ai.google.dev/gemini-api/docs/rate-limits) e [termos de uso e processamento dos dados](https://ai.google.dev/gemini-api/terms).
 

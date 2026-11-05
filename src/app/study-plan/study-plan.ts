@@ -10,11 +10,6 @@ import {
   type StudyActivityStatus,
   type StudyActivityType,
 } from './study-plan.service';
-import { CardService } from '../cards/card.service';
-import {
-  FlashcardGenerationService,
-  type GeneratedFlashcard,
-} from '../core/flashcard-generation.service';
 
 type CalendarView = 'month' | 'week' | 'day';
 
@@ -31,7 +26,184 @@ interface ActivityForm {
   starts_on: string;
   start_time: string;
   duration_minutes: number | null;
+  actual_duration_minutes: number | null;
   lesson_reference: string;
+  plan_name: string;
+}
+
+function addActivity(
+  activities: StudyActivityInput[],
+  planName: string,
+  date: string,
+  title: string,
+  activity_type: StudyActivityType,
+  duration_minutes: number,
+  lesson_reference: string | null = null,
+  status: StudyActivityStatus = 'planned',
+) {
+  activities.push({
+    title,
+    activity_type,
+    starts_on: date,
+    start_time: null,
+    duration_minutes,
+    actual_duration_minutes: null,
+    lesson_reference,
+    plan_name: planName,
+    status,
+  });
+}
+
+function createLevelTwoSchedule(month: string, planName: string): StudyActivityInput[] {
+  const [yearText, monthText] = month.split('-');
+  const year = Number(yearText);
+  const monthNumber = Number(monthText);
+  const dayCount = new Date(year, monthNumber, 0).getDate();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let lessonNumber = 0;
+  const activities: StudyActivityInput[] = [];
+
+  for (let day = 1; day <= dayCount; day += 1) {
+    const date = `${month}-${String(day).padStart(2, '0')}`;
+    const dayOfWeek = new Date(year, monthNumber - 1, day).getDay();
+    const status: StudyActivityStatus =
+      new Date(year, monthNumber - 1, day) < today ? 'unrecorded' : 'planned';
+    const lesson = () => {
+      lessonNumber += 1;
+      const source = `${planName} · Lição ${lessonNumber}`;
+      addActivity(
+        activities,
+        planName,
+        date,
+        `Lição ${lessonNumber} — A1 Level 2`,
+        'study_lesson',
+        30,
+        source,
+        status,
+      );
+    };
+    const add = (title: string, type: StudyActivityType, duration: number) =>
+      addActivity(activities, planName, date, title, type, duration, null, status);
+    const vocabulary = (title = 'Revisar vocabulário com flashcards', duration = 20) =>
+      add(title, 'flashcard_review', duration);
+
+    if (day === 1) {
+      add('Assistir a vídeo em inglês', 'watch_video', 50);
+      add('Escrever o que entendeu', 'write_english', 30);
+      add('Corrigir e conferir o texto', 'write_english', 20);
+      add('Resumir o vídeo em voz alta', 'conversation_class', 10);
+      continue;
+    }
+
+    if (day === 8 || day === 22) {
+      lesson();
+      add('Revisar as lições da semana', 'study_lesson', 30);
+      vocabulary('Revisar vocabulário da semana', 25);
+      add('Revisar erros escritos', 'write_english', 25);
+      add('Listening da semana', 'watch_video', 30);
+      add('Speaking: resumo da semana', 'conversation_class', 20);
+      continue;
+    }
+
+    if (day === 15) {
+      lesson();
+      add('Revisar as lições da semana', 'study_lesson', 30);
+      vocabulary('Revisar vocabulário das semanas', 25);
+      add('Revisar erros escritos', 'write_english', 25);
+      add('Listening da semana', 'watch_video', 30);
+      add('Speaking: resumo da semana', 'conversation_class', 20);
+      add('Rever as semanas anteriores', 'study_lesson', 30);
+      continue;
+    }
+
+    if (day === 29) {
+      add('Revisar o mês', 'study_lesson', 30);
+      add('Revisar erros recorrentes', 'write_english', 30);
+      add('Listening sem legenda', 'watch_video', 45);
+      add('Speaking: temas do mês', 'conversation_class', 30);
+      add('Escrever retrospectiva em inglês', 'write_english', 30);
+      continue;
+    }
+
+    if (day === 25) {
+      lesson();
+      lesson();
+      add('Assistir a vídeo técnico em inglês', 'watch_video', 30);
+      add('Resumir o conteúdo técnico', 'write_english', 30);
+      add('Preparar apresentação profissional', 'write_english', 30);
+      add('Praticar entrevista de emprego', 'conversation_class', 30);
+      vocabulary('Revisar vocabulário profissional', 20);
+      continue;
+    }
+
+    if (day === 30) {
+      lesson();
+      lesson();
+      add('Assistir a vídeo em inglês', 'watch_video', 30);
+      add('Escrever resumo final do mês', 'write_english', 30);
+      add('Gravar áudio de retrospectiva', 'conversation_class', 20);
+      add('Avaliar a evolução do mês', 'study_lesson', 20);
+      vocabulary('Revisar vocabulário do mês', 20);
+      continue;
+    }
+
+    if (dayOfWeek === 0) {
+      lesson();
+      add('Revisar as lições da semana', 'study_lesson', 30);
+      vocabulary('Revisar vocabulário da semana', 30);
+      add('Revisar erros escritos', 'write_english', 30);
+      add('Listening em inglês', 'watch_video', 30);
+      add('Speaking: resumo da semana', 'conversation_class', 20);
+      continue;
+    }
+
+    lesson();
+    lesson();
+    switch (dayOfWeek) {
+      case 1:
+        add('Assistir a vídeo em inglês', 'watch_video', 30);
+        add('Escrever resumo do vídeo', 'write_english', 30);
+        add('Corrigir ou reescrever o resumo', 'write_english', 30);
+        add('Speaking: contar o que estudou', 'conversation_class', 20);
+        vocabulary();
+        break;
+      case 2:
+        add('Aula coletiva de conversação', 'conversation_class', 60);
+        add('Revisar erros da conversação', 'write_english', 30);
+        add('Listening em inglês', 'watch_video', 30);
+        vocabulary();
+        break;
+      case 3:
+        add('Assistir a vídeo de tecnologia em inglês', 'watch_video', 30);
+        add('Escrever resumo técnico', 'write_english', 30);
+        add('Prática oral sobre trabalho', 'conversation_class', 30);
+        vocabulary('Revisar vocabulário técnico', 20);
+        add('Revisar conteúdo técnico', 'study_lesson', 20);
+        break;
+      case 4:
+        add('Aula individual de conversação', 'conversation_class', 60);
+        add('Revisar conteúdo da aula', 'study_lesson', 30);
+        add('Listening em inglês', 'watch_video', 30);
+        add('Registrar 5 a 10 frases', 'write_english', 20);
+        break;
+      case 5:
+        add('Aula coletiva de conversação', 'conversation_class', 60);
+        add('Assistir a vídeo no YouTube', 'watch_video', 30);
+        add('Escrever resumo do vídeo', 'write_english', 30);
+        vocabulary();
+        break;
+      case 6:
+        add('Assistir a série ou vídeo em inglês', 'watch_video', 45);
+        add('Leitura em inglês', 'study_lesson', 30);
+        add('Escrever diário em inglês', 'write_english', 30);
+        add('Speaking: narrar o dia', 'conversation_class', 20);
+        vocabulary();
+        break;
+    }
+  }
+
+  return activities;
 }
 
 @Component({
@@ -44,7 +216,11 @@ interface ActivityForm {
         <div>
           <p class="eyebrow">ORGANIZE SEU APRENDIZADO</p>
           <h1>Meu plano de estudos</h1>
-          <p class="intro">Planeje suas sessões e acompanhe as revisões que estão chegando.</p>
+          <p class="intro">
+            {{
+              activePlanName || 'Planeje suas sessões e acompanhe as revisões que estão chegando.'
+            }}
+          </p>
         </div>
         <button type="button" class="primary-button add-top" (click)="openNewActivity()">
           <span aria-hidden="true">＋</span> Nova atividade
@@ -57,6 +233,45 @@ interface ActivityForm {
           <button type="button" (click)="loadCalendar()">Tentar novamente</button>
         </div>
       }
+
+      <section class="plan-generator" aria-label="Criar plano mensal">
+        <p class="plan-guidance">
+          Meta orientativa: cerca de 3h a 3h30 por dia, incluindo o curso. Ajuste, adie ou remova
+          atividades sem restrições.
+        </p>
+        <label>
+          Nome do plano
+          <input
+            type="text"
+            [(ngModel)]="planName"
+            [ngModelOptions]="{ standalone: true }"
+            maxlength="120"
+          />
+        </label>
+        <label>
+          Mês do calendário
+          <input type="month" [(ngModel)]="planMonth" [ngModelOptions]="{ standalone: true }" />
+        </label>
+        <button
+          type="button"
+          class="secondary-button"
+          (click)="generateMonthlyPlan()"
+          [disabled]="generatingPlan || deletingPlan || !planName.trim() || !planMonth"
+        >
+          {{ generatingPlan ? 'Criando plano...' : 'Criar plano mensal' }}
+        </button>
+        <button
+          type="button"
+          class="secondary-button delete-plan-button"
+          (click)="deleteMonthlyPlan()"
+          [disabled]="generatingPlan || deletingPlan || !planName.trim() || !planMonth"
+        >
+          {{ deletingPlan ? 'Excluindo plano...' : 'Excluir plano deste mês' }}
+        </button>
+        @if (planMessage) {
+          <p class="plan-message" role="status">{{ planMessage }}</p>
+        }
+      </section>
 
       <section class="calendar-panel" aria-label="Calendário do plano de estudos">
         <div class="calendar-toolbar">
@@ -134,15 +349,20 @@ interface ActivityForm {
                       @for (activity of activitiesOn(day.date).slice(0, 2); track activity.id) {
                         <span
                           class="month-activity"
-                          [class.completed]="activity.status === 'completed'"
+                          [class]="
+                            'month-activity status-' +
+                            activity.status +
+                            ' type-' +
+                            activity.activity_type
+                          "
                         >
-                          {{ activity.title }}
+                          {{ activity.title }} · {{ activity.duration_minutes ?? '—' }}m
                         </span>
                       }
                       @if (activitiesOn(day.date).length > 2) {
-                        <span class="more-items"
-                          >+{{ activitiesOn(day.date).length - 2 }} mais</span
-                        >
+                        <span class="more-items">
+                          +{{ activitiesOn(day.date).length - 2 }} mais
+                        </span>
                       }
                       @if (reviewsOn(day.date).length) {
                         <span class="review-marker">
@@ -172,10 +392,21 @@ interface ActivityForm {
                 <strong>{{ day.dayNumber }}</strong>
                 <span class="week-items">
                   @for (activity of activitiesOn(day.date).slice(0, 3); track activity.id) {
-                    <span class="week-activity" [class.completed]="activity.status === 'completed'">
+                    <span
+                      class="week-activity"
+                      [class]="
+                        'week-activity status-' +
+                        activity.status +
+                        ' type-' +
+                        activity.activity_type
+                      "
+                    >
                       {{ activity.start_time ? activity.start_time.slice(0, 5) + ' · ' : ''
-                      }}{{ activity.title }}
+                      }}{{ activity.title }} · {{ activity.duration_minutes ?? '—' }}m
                     </span>
+                  }
+                  @if (activitiesOn(day.date).length > 3) {
+                    <span class="more-items"> +{{ activitiesOn(day.date).length - 3 }} mais </span>
                   }
                   @if (reviewsOn(day.date).length) {
                     <span class="review-marker">◷ {{ reviewsOn(day.date).length }} revisões</span>
@@ -191,6 +422,8 @@ interface ActivityForm {
               {{ activitiesOn(selectedDate).length }}
               {{ activitiesOn(selectedDate).length === 1 ? 'atividade' : 'atividades' }}
             </span>
+            <span>Planejado: {{ selectedDayPlannedMinutes }} min</span>
+            <span>Real: {{ selectedDayActualMinutes }} min</span>
           </div>
         }
       </section>
@@ -224,7 +457,13 @@ interface ActivityForm {
         @if (activitiesOn(selectedDate).length) {
           <div class="activity-list">
             @for (activity of activitiesOn(selectedDate); track activity.id) {
-              <article class="activity-card" [class.completed]="activity.status === 'completed'">
+              <article
+                class="activity-card"
+                [class.completed]="activity.status === 'completed'"
+                [class.status-postponed]="activity.status === 'postponed'"
+                [class.status-skipped]="activity.status === 'skipped'"
+                [class.status-unrecorded]="activity.status === 'unrecorded'"
+              >
                 <span class="activity-type-icon" aria-hidden="true">{{
                   activityIcon(activity.activity_type)
                 }}</span>
@@ -243,24 +482,62 @@ interface ActivityForm {
                     @if (activity.duration_minutes) {
                       <span> · {{ activity.duration_minutes }} min</span>
                     }
+                    @if (activity.actual_duration_minutes) {
+                      <span> · Real: {{ activity.actual_duration_minutes }} min</span>
+                    }
                   </p>
                   @if (activity.lesson_reference) {
                     <small>Lição: {{ activity.lesson_reference }}</small>
                   }
                 </div>
                 <div class="activity-actions">
-                  @if (activity.status === 'planned') {
+                  @if (activity.status !== 'completed') {
                     <button
                       type="button"
                       class="complete-button"
-                      (click)="completeActivity(activity)"
+                      (click)="changeActivityStatus(activity, 'completed')"
                       [disabled]="saving"
                     >
                       Concluir
                     </button>
+                  } @else {
+                    <span class="completed-label">Concluída</span>
                   }
+                  <label class="status-control">
+                    <span class="visually-hidden">Status da atividade</span>
+                    <select
+                      [ngModel]="activity.status"
+                      [ngModelOptions]="{ standalone: true }"
+                      (ngModelChange)="changeActivityStatus(activity, $event)"
+                      [disabled]="saving"
+                    >
+                      @for (status of activityStatuses; track status.value) {
+                        <option [value]="status.value">{{ status.label }}</option>
+                      }
+                    </select>
+                  </label>
+                  @if (activity.activity_type === 'flashcard_review') {
+                    <button type="button" class="text-button" (click)="goToReview()">
+                      Revisar cards
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="text-button"
+                    (click)="goToFlashcardGeneration(activity)"
+                  >
+                    Gerar flashcards com IA
+                  </button>
                   <button type="button" class="text-button" (click)="editActivity(activity)">
                     Editar
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button delete-button"
+                    (click)="deleteActivity(activity)"
+                    [disabled]="saving"
+                  >
+                    <span aria-hidden="true">🗑</span> Excluir
                   </button>
                 </div>
               </article>
@@ -332,6 +609,29 @@ interface ActivityForm {
                 placeholder="Ex.: Unidade 3, lição 2"
               />
             </label>
+            <div class="form-row">
+              <label>
+                Duração real em minutos <span class="optional">(opcional)</span>
+                <input
+                  type="number"
+                  name="actual_duration_minutes"
+                  [(ngModel)]="form.actual_duration_minutes"
+                  min="1"
+                  max="1440"
+                  placeholder="Registrar depois"
+                />
+              </label>
+              <label>
+                Plano <span class="optional">(opcional)</span>
+                <input
+                  type="text"
+                  name="plan_name"
+                  [(ngModel)]="form.plan_name"
+                  maxlength="120"
+                  placeholder="A1 — Level 2"
+                />
+              </label>
+            </div>
             @if (formError) {
               <p class="form-error" role="alert">{{ formError }}</p>
             }
@@ -346,173 +646,6 @@ interface ActivityForm {
         }
       </section>
 
-      @if (completionActivity) {
-        <div class="completion-backdrop">
-          <section
-            class="completion-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="completion-heading"
-          >
-            <div class="form-heading">
-              <h2 id="completion-heading">Concluir lição</h2>
-              <button
-                type="button"
-                class="text-button"
-                (click)="closeCompletionDialog()"
-                [disabled]="generatingCards || savingCards || saving"
-                aria-label="Fechar"
-              >
-                Fechar
-              </button>
-            </div>
-            <p class="completion-intro">
-              {{ completionActivity.title }}
-              @if (completionActivity.lesson_reference) {
-                <span> · {{ completionActivity.lesson_reference }}</span>
-              }
-            </p>
-            <label class="completion-label" for="lesson-summary">
-              Escreva ou cole o resumo do que você estudou
-            </label>
-            <textarea
-              id="lesson-summary"
-              [(ngModel)]="lessonSummary"
-              [ngModelOptions]="{ standalone: true }"
-              maxlength="5000"
-              rows="6"
-              placeholder="Compartilhe apenas o conteúdo que você revisou e quer enviar."
-              [disabled]="generatingCards || savingCards"
-            ></textarea>
-            <div class="summary-meta">
-              <span>Nível de inglês</span>
-              <select
-                [(ngModel)]="learnerLevel"
-                [ngModelOptions]="{ standalone: true }"
-                [disabled]="generatingCards || savingCards"
-              >
-                <option value="beginner">Iniciante</option>
-                <option value="intermediate">Intermediário</option>
-                <option value="advanced">Avançado</option>
-              </select>
-              <span>{{ lessonSummary.length }}/5000</span>
-            </div>
-            <p class="privacy-notice">
-              O resumo só será enviado ao Gemini se você tocar em “Gerar cards com Gemini”.
-              Na camada gratuita, o Google pode usar o conteúdo para melhorar os produtos.
-              Não envie dados pessoais nem conteúdo que não queira compartilhar. A geração é
-              opcional; você pode concluir a lição e criar cartões manualmente.
-            </p>
-            @if (generationError) {
-              <p class="completion-error" role="alert">{{ generationError }}</p>
-            }
-            @if (generationMessage) {
-              <p class="completion-success" role="status">{{ generationMessage }}</p>
-            }
-            @if (needsMoreContext) {
-              <p class="completion-hint" role="status">{{ needsMoreContext }}</p>
-            }
-            <button
-              type="button"
-              class="primary-button generate-button"
-              (click)="generateFlashcards()"
-              [disabled]="generatingCards || savingCards || !lessonSummary.trim()"
-            >
-              {{ generatingCards ? 'Gerando sugestões...' : 'Gerar cards com Gemini' }}
-            </button>
-
-            @if (drafts.length) {
-              <div class="draft-list" aria-label="Rascunhos de flashcards">
-                @for (draft of drafts; track draft.id) {
-                  <article class="draft-card">
-                    <label class="draft-select">
-                      <input
-                        type="checkbox"
-                        [(ngModel)]="draft.selected"
-                        [ngModelOptions]="{ standalone: true }"
-                        [disabled]="savingCards"
-                      />
-                      Incluir este rascunho
-                    </label>
-                    <button
-                      type="button"
-                      class="text-button draft-delete"
-                      (click)="removeDraft(draft.id)"
-                      [disabled]="savingCards"
-                      aria-label="Excluir sugestão"
-                    >
-                      Excluir
-                    </button>
-                    <label>
-                      Frente em inglês
-                      <textarea
-                        [(ngModel)]="draft.front"
-                        [ngModelOptions]="{ standalone: true }"
-                        maxlength="500"
-                        rows="2"
-                        [disabled]="savingCards"
-                      ></textarea>
-                    </label>
-                    <label>
-                      Tradução ou resposta em português
-                      <textarea
-                        [(ngModel)]="draft.back"
-                        [ngModelOptions]="{ standalone: true }"
-                        maxlength="500"
-                        rows="2"
-                        [disabled]="savingCards"
-                      ></textarea>
-                    </label>
-                    <div class="draft-fields">
-                      <label>
-                        Palavra ou expressão em foco
-                        <input
-                          [(ngModel)]="draft.focus"
-                          [ngModelOptions]="{ standalone: true }"
-                          maxlength="120"
-                          [disabled]="savingCards"
-                        />
-                      </label>
-                      <label>
-                        Tipo
-                        <select
-                          [(ngModel)]="draft.type"
-                          [ngModelOptions]="{ standalone: true }"
-                          [disabled]="savingCards"
-                        >
-                          <option value="vocabulary">Vocabulário</option>
-                          <option value="sentence">Frase</option>
-                          <option value="cloze">Lacuna</option>
-                        </select>
-                      </label>
-                    </div>
-                    <small>Origem: {{ draft.source }}</small>
-                  </article>
-                }
-              </div>
-              <button
-                type="button"
-                class="primary-button save-drafts-button"
-                (click)="saveSelectedDrafts()"
-                [disabled]="savingCards || !selectedDraftsValid"
-              >
-                {{ savingCards ? 'Salvando...' : 'Salvar ' + selectedDraftCount + ' cards selecionados' }}
-              </button>
-            }
-
-            <div class="completion-actions">
-              <button
-                type="button"
-                class="secondary-button"
-                (click)="markActivityCompleted(completionActivity)"
-                [disabled]="generatingCards || savingCards || saving"
-              >
-                {{ saving ? 'Concluindo...' : 'Concluir atividade' }}
-              </button>
-            </div>
-          </section>
-        </div>
-      }
     </main>
   `,
 })
@@ -526,7 +659,7 @@ export class StudyPlanComponent implements OnInit {
     { value: 'conversation_class', label: 'Aula de conversação' },
   ];
 
-  view: CalendarView = 'month';
+  view: CalendarView = 'week';
   displayedDate = this.startOfDay(new Date());
   selectedDate = this.formatDate(new Date());
   activities: StudyActivity[] = [];
@@ -541,22 +674,22 @@ export class StudyPlanComponent implements OnInit {
   monthDays: Array<CalendarDay | null> = [];
   weekDays: CalendarDay[] = [];
   form: ActivityForm = this.emptyForm();
-  completionActivity: StudyActivity | null = null;
-  lessonSummary = '';
-  learnerLevel = 'beginner';
-  drafts: Array<GeneratedFlashcard & { id: number; selected: boolean }> = [];
-  generatingCards = false;
-  savingCards = false;
-  generationError = '';
-  generationMessage = '';
-  needsMoreContext = '';
-
+  planName = 'A1 — Level 2';
+  planMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  planMessage = '';
+  generatingPlan = false;
+  deletingPlan = false;
+  readonly activityStatuses: Array<{ value: StudyActivityStatus; label: string }> = [
+    { value: 'planned', label: 'Planejada' },
+    { value: 'completed', label: 'Concluída' },
+    { value: 'postponed', label: 'Adiada' },
+    { value: 'skipped', label: 'Não realizada' },
+    { value: 'unrecorded', label: 'Ainda não registrada' },
+  ];
   constructor(
     private readonly service: StudyPlanService,
     private readonly router: Router,
     private readonly changeDetector: ChangeDetectorRef,
-    private readonly cardService: CardService,
-    private readonly flashcardGeneration: FlashcardGenerationService,
   ) {}
 
   ngOnInit() {
@@ -639,7 +772,9 @@ export class StudyPlanComponent implements OnInit {
       starts_on: activity.starts_on,
       start_time: activity.start_time?.slice(0, 5) ?? '',
       duration_minutes: activity.duration_minutes,
+      actual_duration_minutes: activity.actual_duration_minutes,
       lesson_reference: activity.lesson_reference ?? '',
+      plan_name: activity.plan_name ?? '',
     };
     this.formOpen = true;
   }
@@ -664,6 +799,15 @@ export class StudyPlanComponent implements OnInit {
       this.formError = 'A duração deve ser um número entre 1 e 1440 minutos.';
       return;
     }
+    if (
+      this.form.actual_duration_minutes !== null &&
+      (!Number.isInteger(Number(this.form.actual_duration_minutes)) ||
+        Number(this.form.actual_duration_minutes) < 1 ||
+        Number(this.form.actual_duration_minutes) > 1440)
+    ) {
+      this.formError = 'O tempo real deve ser um número entre 1 e 1440 minutos.';
+      return;
+    }
 
     const existing = this.activities.find((activity) => activity.id === this.editingId);
     const input: StudyActivityInput = {
@@ -672,7 +816,11 @@ export class StudyPlanComponent implements OnInit {
       starts_on: this.form.starts_on,
       start_time: this.form.start_time || null,
       duration_minutes: this.form.duration_minutes ? Number(this.form.duration_minutes) : null,
+      actual_duration_minutes: this.form.actual_duration_minutes
+        ? Number(this.form.actual_duration_minutes)
+        : null,
       lesson_reference: this.form.lesson_reference.trim() || null,
+      plan_name: this.form.plan_name.trim() || null,
       status: existing?.status ?? 'planned',
     };
 
@@ -693,141 +841,161 @@ export class StudyPlanComponent implements OnInit {
     }
   }
 
-  async completeActivity(activity: StudyActivity) {
-    if (activity.activity_type === 'study_lesson') {
-      this.completionActivity = activity;
-      this.lessonSummary = '';
-      this.learnerLevel = 'beginner';
-      this.drafts = [];
-      this.generationError = '';
-      this.generationMessage = '';
-      this.needsMoreContext = '';
+  goToFlashcardGeneration(activity: StudyActivity) {
+    const source = activity.lesson_reference
+      ? `${activity.lesson_reference} — ${activity.title}`
+      : activity.title;
+    void this.router.navigate(['/generate-cards'], { queryParams: { source } });
+  }
+
+  async changeActivityStatus(activity: StudyActivity, status: StudyActivityStatus) {
+    if (activity.status === status) {
       return;
     }
 
-    await this.markActivityCompleted(activity);
-  }
-
-  async markActivityCompleted(activity: StudyActivity) {
     this.saving = true;
     this.errorMessage = '';
     try {
-      await this.service.updateStatus(activity.id, 'completed');
-      this.closeCompletionDialog();
+      await this.service.updateStatus(activity.id, status);
       await this.loadCalendar();
+      if (
+        status === 'completed' &&
+        window.confirm('Atividade concluída. Quer criar cartões a partir do seu resumo?')
+      ) {
+        this.goToFlashcardGeneration(activity);
+      }
     } catch (error) {
       this.errorMessage =
-        error instanceof Error ? error.message : 'Não foi possível concluir a atividade.';
+        error instanceof Error ? error.message : 'Não foi possível atualizar o status.';
     } finally {
       this.saving = false;
       this.changeDetector.markForCheck();
     }
   }
 
-  async generateFlashcards() {
-    const summary = this.lessonSummary.trim();
-    const characterCount = Array.from(summary).length;
-    if (!summary || characterCount > 5000) {
-      this.generationError = 'Informe um resumo com até 5.000 caracteres.';
-      return;
-    }
-    if (!this.completionActivity) {
+  async generateMonthlyPlan() {
+    if (
+      !/^\d{4}-(0[1-9]|1[0-2])$/.test(this.planMonth) ||
+      !this.planName.trim() ||
+      this.planName.trim().length > 120
+    ) {
+      this.planMessage = 'Informe um nome e um mês válidos para criar o plano.';
       return;
     }
 
-    const activity = this.completionActivity;
-    const source = activity.lesson_reference
-      ? `${activity.lesson_reference} — ${activity.title}`
-      : activity.title;
-    this.generatingCards = true;
-    this.generationError = '';
-    this.generationMessage = '';
-    this.needsMoreContext = '';
-    this.drafts = [];
+    const [yearText, monthText] = this.planMonth.split('-');
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const startDate = `${this.planMonth}-01`;
+    const endDate = `${this.planMonth}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
+    const activities = createLevelTwoSchedule(this.planMonth, this.planName.trim());
 
+    this.generatingPlan = true;
+    this.planMessage = '';
     try {
-      const result = await this.flashcardGeneration.generate(summary, this.learnerLevel, source);
-      if (result.needsMoreContext) {
-        this.needsMoreContext = result.message;
-      } else {
-        this.drafts = result.cards.map((card, id) => ({ ...card, id, selected: true }));
-      }
-    } catch (error) {
-      this.generationError =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível gerar sugestões. Tente novamente mais tarde.';
-    } finally {
-      this.generatingCards = false;
-      this.changeDetector.markForCheck();
-    }
-  }
-
-  async saveSelectedDrafts() {
-    const selected = this.drafts.filter((draft) => draft.selected);
-    if (!selected.length || !this.selectedDraftsValid) {
-      this.generationError = 'Selecione e complete pelo menos um rascunho antes de salvar.';
-      return;
-    }
-
-    this.savingCards = true;
-    this.generationError = '';
-    this.generationMessage = '';
-    try {
-      await this.cardService.createCards(
-        selected.map((draft) => ({
-          english_text: draft.front,
-          portuguese_text: draft.back,
-          focus_word: draft.focus,
-          category: draft.type,
-          source: draft.source,
-        })),
+      const created = await this.service.createMonthlyPlan(
+        this.planName.trim(),
+        startDate,
+        endDate,
+        activities,
       );
-      this.drafts = [];
-      this.generationMessage = `${selected.length} ${selected.length === 1 ? 'card salvo' : 'cards salvos'} na sua coleção.`;
+      if (!created) {
+        this.planMessage =
+          'Já existe um plano com esse nome neste mês. Edite as atividades existentes para evitar duplicatas.';
+        return;
+      }
+
+      this.selectedDate = startDate;
+      this.displayedDate = this.parseDate(startDate);
+      this.view = 'month';
+      this.planMessage = `${activities.length} atividades criadas para ${this.planMonth}. O plano é uma meta orientativa; ajuste o calendário como preferir.`;
+      await this.loadCalendar();
     } catch (error) {
-      this.generationError =
-        error instanceof Error ? error.message : 'Não foi possível salvar os cartões selecionados.';
+      this.planMessage =
+        error instanceof Error ? error.message : 'Não foi possível criar o plano mensal.';
     } finally {
-      this.savingCards = false;
+      this.generatingPlan = false;
       this.changeDetector.markForCheck();
     }
   }
 
-  removeDraft(id: number) {
-    this.drafts = this.drafts.filter((draft) => draft.id !== id);
-  }
-
-  closeCompletionDialog() {
-    if (this.generatingCards || this.savingCards || this.saving) {
+  async deleteMonthlyPlan() {
+    if (
+      !/^\d{4}-(0[1-9]|1[0-2])$/.test(this.planMonth) ||
+      !this.planName.trim() ||
+      this.planName.trim().length > 120
+    ) {
+      this.planMessage = 'Informe um nome e um mês válidos para excluir o plano.';
       return;
     }
-    this.completionActivity = null;
-    this.lessonSummary = '';
-    this.drafts = [];
-    this.generationError = '';
-    this.generationMessage = '';
-    this.needsMoreContext = '';
-  }
 
-  get selectedDraftCount() {
-    return this.drafts.filter((draft) => draft.selected).length;
-  }
-
-  get selectedDraftsValid() {
-    const selected = this.drafts.filter((draft) => draft.selected);
-    return (
-      selected.length > 0 &&
-      selected.every(
-        (draft) =>
-          draft.front.trim() &&
-          draft.back.trim() &&
-          draft.focus.trim() &&
-          draft.front.length <= 500 &&
-          draft.back.length <= 500 &&
-          draft.focus.length <= 120,
-      )
+    const [yearText, monthText] = this.planMonth.split('-');
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const startDate = `${this.planMonth}-01`;
+    const endDate = `${this.planMonth}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
+    const confirmed = window.confirm(
+      `Excluir todas as atividades do plano “${this.planName.trim()}” de ${this.planMonth}? Esta ação não pode ser desfeita.`,
     );
+    if (!confirmed) {
+      return;
+    }
+
+    this.deletingPlan = true;
+    this.planMessage = '';
+    try {
+      const deleted = await this.service.deleteMonthlyPlan(
+        this.planName.trim(),
+        startDate,
+        endDate,
+      );
+      this.planMessage = deleted
+        ? `${deleted} atividades foram excluídas do plano ${this.planName.trim()} em ${this.planMonth}.`
+        : `Nenhuma atividade do plano ${this.planName.trim()} foi encontrada em ${this.planMonth}.`;
+      await this.loadCalendar();
+    } catch (error) {
+      this.planMessage =
+        error instanceof Error ? error.message : 'Não foi possível excluir o plano mensal.';
+    } finally {
+      this.deletingPlan = false;
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  get activePlanName() {
+    return this.activities.find((activity) => activity.plan_name)?.plan_name ?? '';
+  }
+
+  get selectedDayPlannedMinutes() {
+    return this.activitiesOn(this.selectedDate).reduce(
+      (total, activity) => total + (activity.duration_minutes ?? 0),
+      0,
+    );
+  }
+
+  get selectedDayActualMinutes() {
+    return this.activitiesOn(this.selectedDate).reduce(
+      (total, activity) => total + (activity.actual_duration_minutes ?? 0),
+      0,
+    );
+  }
+
+  async deleteActivity(activity: StudyActivity) {
+    if (!window.confirm(`Excluir “${activity.title}” do calendário?`)) {
+      return;
+    }
+    this.saving = true;
+    this.errorMessage = '';
+    try {
+      await this.service.deleteActivity(activity.id);
+      await this.loadCalendar();
+    } catch (error) {
+      this.errorMessage =
+        error instanceof Error ? error.message : 'Não foi possível excluir a atividade.';
+    } finally {
+      this.saving = false;
+      this.changeDetector.markForCheck();
+    }
   }
 
   activitiesOn(date: string) {
@@ -865,7 +1033,10 @@ export class StudyPlanComponent implements OnInit {
   }
 
   activityTypeLabel(type: StudyActivityType) {
-    return this.activityTypes.find((item) => item.value === type)?.label ?? 'Estudo';
+    return (
+      this.activityTypes.find((item) => item.value === type)?.label ??
+      (type === 'flashcard_review' ? 'Revisar flashcards' : 'Estudo')
+    );
   }
 
   activityIcon(type: StudyActivityType) {
@@ -880,7 +1051,7 @@ export class StudyPlanComponent implements OnInit {
   }
 
   statusLabel(status: StudyActivityStatus) {
-    return status === 'completed' ? 'Concluída' : 'Planejada';
+    return this.activityStatuses.find((item) => item.value === status)?.label ?? 'Planejada';
   }
 
   goToReview() {
@@ -894,7 +1065,9 @@ export class StudyPlanComponent implements OnInit {
       starts_on: this.formatDate(new Date()),
       start_time: '',
       duration_minutes: null,
+      actual_duration_minutes: null,
       lesson_reference: '',
+      plan_name: '',
     };
   }
 

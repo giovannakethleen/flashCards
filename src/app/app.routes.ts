@@ -8,6 +8,7 @@ import { AuthGuard } from './core/auth.guard';
 import { DashboardComponent } from './dashboard/dashboard';
 import { WorkspaceShellComponent } from './core/workspace-shell';
 import { StudyPlanComponent } from './study-plan/study-plan';
+import { FlashcardGeneratorComponent } from './cards/flashcard-generator';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -20,6 +21,7 @@ export const routes: Routes = [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'cards', component: CardListComponent },
       { path: 'cards/new', component: QuickCardFormComponent },
+      { path: 'generate-cards', component: FlashcardGeneratorComponent },
       { path: 'review', component: ReviewComponent },
       { path: 'study-plan', component: StudyPlanComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
