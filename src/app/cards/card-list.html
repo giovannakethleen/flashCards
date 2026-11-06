@@ -13,6 +13,18 @@
             placeholder="Buscar frase, tradução ou origem"
             aria-label="Buscar na coleção"
           />
+          <button
+            type="button"
+            class="secondary filter-toggle"
+            [attr.aria-expanded]="filtersOpen"
+            aria-controls="collection-filter-options"
+            (click)="filtersOpen = !filtersOpen"
+          >
+            Filtros @if (activeFilterCount) { <span class="filter-count">{{ activeFilterCount }}</span> }
+            <span aria-hidden="true">{{ filtersOpen ? '−' : '+' }}</span>
+          </button>
+          @if (filtersOpen) {
+          <div class="filter-options" id="collection-filter-options">
           <select [(ngModel)]="categoryFilter" (ngModelChange)="applyFilters()" aria-label="Tema">
             <option value="">Todos os temas</option>
             @for (category of categories; track category) {
@@ -56,6 +68,11 @@
             <option value="en-US">Voz EUA</option>
             <option value="en-GB">Voz Reino Unido</option>
           </select>
+          @if (activeFilterCount) {
+            <button type="button" class="clear-filters" (click)="clearFilters()">Limpar filtros</button>
+          }
+          </div>
+          }
         </div>
 
         @if (speechMessage) {
@@ -190,6 +207,8 @@
                     <button type="button" class="danger" (click)="requestDelete(card)" aria-label="Excluir cartão" title="Excluir cartão">
                       🗑
                     </button>
+                  </div>
+                  <div class="item-pronunciation">
                     @defer (on interaction) {
                       <app-pronunciation-practice
                         [referenceText]="card.english_text"

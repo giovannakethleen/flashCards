@@ -1,5 +1,7 @@
     :host {
       display: block;
+      width: 100%;
+      min-width: 0;
     }
     .practice.compact {
       margin-top: 0;
@@ -10,6 +12,9 @@
     }
     .practice-panel {
       display: grid;
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
       gap: 0.75rem;
       margin-top: 0.8rem;
       padding: 1rem;

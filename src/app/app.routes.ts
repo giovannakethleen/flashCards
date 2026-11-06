@@ -24,6 +24,7 @@ export const routes: Routes = [
       { path: 'generate-cards', component: FlashcardGeneratorComponent },
       { path: 'review', component: ReviewComponent },
       { path: 'study-plan', component: StudyPlanComponent },
+      { path: 'study-notes', component: StudyPlanComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },

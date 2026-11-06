@@ -41,8 +41,11 @@
           <a class="nav-link" routerLink="/review" routerLinkActive="active" (click)="closeMobileMenu()">
             <span aria-hidden="true">◷</span> Estudar
           </a>
-          <a class="nav-link" routerLink="/study-plan" routerLinkActive="active" (click)="closeMobileMenu()">
+          <a class="nav-link" routerLink="/study-plan" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" (click)="closeMobileMenu()">
             <span aria-hidden="true">▦</span> Meu plano
+          </a>
+          <a class="nav-link" routerLink="/study-notes" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" (click)="closeMobileMenu()">
+            <span aria-hidden="true">✎</span> Notas
           </a>
           <a class="nav-link" routerLink="/generate-cards" routerLinkActive="active" (click)="closeMobileMenu()">
             <span aria-hidden="true">✦</span> Criar com IA

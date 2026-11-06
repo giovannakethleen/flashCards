@@ -85,10 +85,12 @@ export class StudyPlanComponent implements OnInit, OnDestroy {
   noteTagFilter = '';
   noteTagDraft = '';
   notePreview = false;
+  private noteTextarea?: HTMLTextAreaElement;
   notesLoading = false;
   notesError = '';
   creatingNote = false;
   deletingNote = false;
+  notePendingDelete: StudyNote | null = null;
   freeNoteStatus = '';
   noteAiError = '';
   noteExplanation = '';
@@ -112,7 +114,12 @@ export class StudyPlanComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    void this.loadCalendar();
+    this.activeTab = this.router.url.startsWith('/study-notes') ? 'notes' : 'calendar';
+    if (this.activeTab === 'notes') {
+      void this.loadNotes();
+    } else {
+      void this.loadCalendar();
+    }
   }
 
   ngOnDestroy() {
@@ -167,10 +174,7 @@ export class StudyPlanComponent implements OnInit, OnDestroy {
   }
 
   setTab(tab: 'calendar' | 'notes') {
-    this.activeTab = tab;
-    if (tab === 'notes' && !this.notes.length) {
-      void this.loadNotes();
-    }
+    void this.router.navigate([tab === 'notes' ? '/study-notes' : '/study-plan']);
   }
 
   movePeriod(offset: -1 | 1) {
@@ -370,6 +374,25 @@ export class StudyPlanComponent implements OnInit, OnDestroy {
     this.selectedNote.tags = (this.selectedNote.tags ?? []).filter((item) => item !== tag); this.scheduleNoteSave();
   }
 
+  registerNoteTextarea(element: HTMLTextAreaElement) { this.noteTextarea = element; }
+
+  formatNote(mark: 'bold' | 'italic' | 'code' | 'heading' | 'bullet' | 'number') {
+    const note = this.selectedNote;
+    const area = this.noteTextarea;
+    if (!note || !area) return;
+    const start = area.selectionStart;
+    const end = area.selectionEnd;
+    const selected = note.content.slice(start, end);
+    let replacement: string;
+    if (mark === 'heading') replacement = selected.split('\n').map((line) => `## ${line}`).join('\n');
+    else if (mark === 'bullet') replacement = selected.split('\n').map((line) => `- ${line}`).join('\n');
+    else if (mark === 'number') replacement = selected.split('\n').map((line, index) => `${index + 1}. ${line}`).join('\n');
+    else { const token = mark === 'bold' ? '**' : mark === 'italic' ? '*' : '`'; replacement = `${token}${selected || 'texto'}${token}`; }
+    note.content = note.content.slice(0, start) + replacement + note.content.slice(end);
+    this.scheduleNoteSave();
+    requestAnimationFrame(() => { area.focus(); area.setSelectionRange(start, start + replacement.length); });
+  }
+
   renderMarkdown(source: string): string {
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
     const inline = (s: string) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>');
@@ -475,10 +498,14 @@ export class StudyPlanComponent implements OnInit, OnDestroy {
     }, 1500);
   }
 
-  async deleteFreeNote(note: StudyNote) {
-    if (!window.confirm(`Excluir a nota “${note.title || 'Sem título'}”?`)) {
-      return;
-    }
+  deleteFreeNote(note: StudyNote) {
+    this.notePendingDelete = note;
+  }
+
+  async confirmDeleteFreeNote() {
+    const note = this.notePendingDelete;
+    if (!note) return;
+    this.notePendingDelete = null;
     if (this.freeNoteTimer) {
       clearTimeout(this.freeNoteTimer);
       this.freeNoteTimer = null;
@@ -744,6 +771,9 @@ export class StudyPlanComponent implements OnInit, OnDestroy {
   }
 
   get activePlanName() {
+    if (this.activeTab === 'notes') {
+      return 'Suas anotações de estudo em um espaço dedicado.';
+    }
     return this.activities.find((activity) => activity.plan_name)?.plan_name ?? '';
   }
 

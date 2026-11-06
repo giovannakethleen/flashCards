@@ -3,16 +3,18 @@
       <header class="page-heading">
         <div>
           <p class="eyebrow">ORGANIZE SEU APRENDIZADO</p>
-          <h1>Meu plano de estudos</h1>
+          <h1>{{ activeTab === 'calendar' ? 'Calendário de estudos' : 'Notas de estudo' }}</h1>
           <p class="intro">
             {{
               activePlanName || 'Planeje suas sessões e acompanhe as revisões que estão chegando.'
             }}
           </p>
         </div>
+        @if (activeTab === 'calendar') {
         <button type="button" class="primary-button add-top" (click)="openNewActivity()">
           <span aria-hidden="true">＋</span> Nova atividade
         </button>
+        }
       </header>
 
       @if (errorMessage) {
@@ -21,25 +23,6 @@
           <button type="button" (click)="loadCalendar()">Tentar novamente</button>
         </div>
       }
-
-      <nav class="plan-tabs" aria-label="Meu plano">
-        <button
-          type="button"
-          [class.active]="activeTab === 'calendar'"
-          [attr.aria-pressed]="activeTab === 'calendar'"
-          (click)="setTab('calendar')"
-        >
-          Calendário
-        </button>
-        <button
-          type="button"
-          [class.active]="activeTab === 'notes'"
-          [attr.aria-pressed]="activeTab === 'notes'"
-          (click)="setTab('notes')"
-        >
-          Notas
-        </button>
-      </nav>
 
       @if (activeTab === 'calendar') {
       <section class="plan-generator" aria-label="Criar plano mensal">
@@ -604,10 +587,20 @@
               @if (notePreview) {
                 <article class="markdown-preview" [innerHTML]="renderMarkdown(selectedNote.content)"></article>
               } @else {
+              <div class="note-format-toolbar" aria-label="Formatação do texto">
+                <button type="button" title="Título" (mousedown)="$event.preventDefault()" (click)="registerNoteTextarea(noteMarkdownEditor); formatNote('heading')">Título</button>
+                <button type="button" title="Negrito" (mousedown)="$event.preventDefault()" (click)="registerNoteTextarea(noteMarkdownEditor); formatNote('bold')"><strong>B</strong></button>
+                <button type="button" title="Itálico" (mousedown)="$event.preventDefault()" (click)="registerNoteTextarea(noteMarkdownEditor); formatNote('italic')"><em>I</em></button>
+                <button type="button" title="Lista com marcadores" (mousedown)="$event.preventDefault()" (click)="registerNoteTextarea(noteMarkdownEditor); formatNote('bullet')">• Lista</button>
+                <button type="button" title="Lista numerada" (mousedown)="$event.preventDefault()" (click)="registerNoteTextarea(noteMarkdownEditor); formatNote('number')">1. Lista</button>
+                <button type="button" title="Código" (mousedown)="$event.preventDefault()" (click)="registerNoteTextarea(noteMarkdownEditor); formatNote('code')">&lt;/&gt;</button>
+              </div>
               <label>
                 <span class="visually-hidden">ConteÃºdo da nota</span>
                 <textarea
+                  #noteMarkdownEditor
                   class="free-note-content"
+                  (focus)="registerNoteTextarea(noteMarkdownEditor)"
                   [(ngModel)]="selectedNote.content"
                   [ngModelOptions]="{ standalone: true }"
                   (ngModelChange)="scheduleNoteSave()"
@@ -665,4 +658,19 @@
         </section>
       }
 
+      @if (notePendingDelete) {
+        <div class="confirm-overlay" (click)="notePendingDelete = null">
+          <section class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-note-title" aria-describedby="delete-note-description" (click)="$event.stopPropagation()">
+            <div class="confirm-dialog-icon" aria-hidden="true">!</div>
+            <div class="confirm-dialog-copy">
+              <h2 id="delete-note-title">Excluir nota?</h2>
+              <p id="delete-note-description">A nota “{{ notePendingDelete.title || 'Sem título' }}” será excluída permanentemente.</p>
+            </div>
+            <div class="confirm-dialog-actions">
+              <button type="button" class="secondary-button" (click)="notePendingDelete = null">Cancelar</button>
+              <button type="button" class="danger-button" (click)="confirmDeleteFreeNote()" [disabled]="deletingNote">{{ deletingNote ? 'Excluindo...' : 'Excluir nota' }}</button>
+            </div>
+          </section>
+        </div>
+      }
     </main>

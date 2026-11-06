@@ -585,7 +585,9 @@ app-study-plan {
 
   .day-note textarea,
   .note-search input,
+  .note-search select,
   .note-title-input,
+  .note-tags-editor input,
   .free-note-content {
     width: 100%;
     padding: 0.65rem 0.75rem;
@@ -604,7 +606,9 @@ app-study-plan {
 
   .day-note textarea:focus,
   .note-search input:focus,
+  .note-search select:focus,
   .note-title-input:focus,
+  .note-tags-editor input:focus,
   .free-note-content:focus {
     border-color: #38bdf8;
     outline: 2px solid rgba(56, 189, 248, 0.15);
@@ -723,14 +727,31 @@ app-study-plan {
 
   .note-tags-editor form, .note-mode-switch { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
   .note-tags-editor form input { flex: 1; min-width: 10rem; }
+  .note-search select { width: 100%; min-height: 36px; color-scheme: dark; font-size: 0.7rem; }
+  .note-tags-editor input { min-height: 36px; }
+  .note-tags-editor { color: #cbd5e1; font-size: 0.75rem; }
   .note-tag-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
   .note-tag-chips button, .note-mode-switch button { border: 1px solid var(--border-color, #d5dbe5); border-radius: 999px; padding: 0.35rem 0.7rem; background: transparent; color: inherit; cursor: pointer; }
   .note-mode-switch { margin: 0.75rem 0; }
+  .note-format-toolbar { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .note-format-toolbar button { padding: 0.35rem 0.6rem; border: 1px solid rgba(148, 163, 184, 0.24); border-radius: 6px; background: #111b2d; color: #cbd5e1; cursor: pointer; font-size: 0.7rem; }
+  .note-format-toolbar button:hover { border-color: #38bdf8; color: #f8fafc; }
   .note-mode-switch .active { background: var(--primary-color, #3157c8); color: white; }
   .markdown-preview { min-height: 16rem; padding: 1rem; overflow: auto; border: 1px solid var(--border-color, #d5dbe5); border-radius: 0.6rem; }
   .markdown-preview pre { padding: 0.75rem; overflow: auto; background: #f2f4f7; border-radius: 0.4rem; }
   .markdown-preview table { width: 100%; border-collapse: collapse; }
   .markdown-preview th, .markdown-preview td { padding: 0.4rem; border: 1px solid #d5dbe5; text-align: left; }
+
+  .confirm-overlay { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(2, 6, 15, 0.76); backdrop-filter: blur(3px); }
+  .confirm-dialog { display: grid; width: min(100%, 420px); grid-template-columns: auto 1fr; gap: 0.9rem; padding: 1.25rem; border: 1px solid rgba(148, 163, 184, 0.24); border-radius: 14px; background: #111b2d; color: #e2e8f0; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5); }
+  .confirm-dialog-icon { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 50%; background: rgba(248, 113, 113, 0.14); color: #fca5a5; font-weight: 800; }
+  .confirm-dialog-copy h2 { margin: 0; color: #f8fafc; font-size: 1rem; }
+  .confirm-dialog-copy p { margin: 0.45rem 0 0; color: #aebbd0; font-size: 0.82rem; line-height: 1.5; overflow-wrap: anywhere; }
+  .confirm-dialog-actions { display: flex; grid-column: 1 / -1; justify-content: flex-end; gap: 0.55rem; margin-top: 0.45rem; }
+  .confirm-dialog-actions button { min-height: 38px; padding: 0.5rem 0.85rem; border-radius: 8px; cursor: pointer; font: inherit; font-size: 0.78rem; }
+  .confirm-dialog-actions .secondary-button { border: 1px solid rgba(148, 163, 184, 0.28); background: #182438; color: #e2e8f0; }
+  .confirm-dialog-actions .danger-button { border: 1px solid #dc5b64; background: #c53b46; color: white; font-weight: 700; }
+  .confirm-dialog-actions .danger-button:hover:not(:disabled) { background: #a92d38; }
 
   .note-title-input {
     min-height: 42px;

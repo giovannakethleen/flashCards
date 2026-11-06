@@ -39,6 +39,21 @@ export class CardListComponent implements OnInit {
   draftLevel = '';
   isLoading = true;
   voiceLocale: EnglishLocale = 'en-US';
+  filtersOpen = false;
+
+  get activeFilterCount() {
+    return [this.categoryFilter, this.sourceFilter, this.levelFilter, this.reviewFilter, this.learningFilter]
+      .filter(Boolean).length;
+  }
+
+  clearFilters() {
+    this.categoryFilter = '';
+    this.sourceFilter = '';
+    this.levelFilter = '';
+    this.reviewFilter = '';
+    this.learningFilter = '';
+    this.applyFilters();
+  }
   speechMessage = '';
   errorMessage = '';
   isTranslating = false;
